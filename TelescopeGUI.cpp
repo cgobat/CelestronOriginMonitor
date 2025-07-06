@@ -2,6 +2,7 @@
 #include "CommandInterface.hpp"
 #include "AlpacaServer.hpp"
 #include "OriginBackend.hpp"
+#include "MessierCatalog.h"
 #include <cmath>
 
 TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent) {
@@ -1176,19 +1177,11 @@ QWidget* TelescopeGUI::createSlewAndImageTab() {
     
     // Add some common targets with their J2000 coordinates
     targetComboBox->addItem("Custom Coordinates");
-    targetComboBox->addItem("Cor Caroli - α CVn", "12h56m01.67s +38°19'06.2\"");
-    targetComboBox->addItem("Mizar - ζ UMa", "13h23m55.5s +54°55'31\"");
-    targetComboBox->addItem("Vega - α Lyr", "18h36m56.3s +38°47'01\"");
-    targetComboBox->addItem("Deneb - α Cyg", "20h41m25.9s +45°16'49\"");
-    targetComboBox->addItem("Altair - α Aql", "19h50m47.0s +08°52'06\"");
-    targetComboBox->addItem("Polaris - α UMi", "02h31m49.1s +89°15'51\"");
-    targetComboBox->addItem("M31 - Andromeda Galaxy", "00h42m44.3s +41°16'09\"");
-    targetComboBox->addItem("M42 - Orion Nebula", "05h35m17.3s -05°23'28\"");
-    targetComboBox->addItem("M45 - Pleiades", "03h47m24.0s +24°07'00\"");
-    targetComboBox->addItem("M51 - Whirlpool Galaxy", "13h29m52.7s +47°11'43\"");
-    targetComboBox->addItem("Virgo - Supercluster", "12h24m36.0s +8°0'00\"");
-    targetComboBox->addItem("Virgo - Galaxy1", "12h24m12.0s +7°57'07\"");
-    
+    QStringList objectNames = MessierCatalog::getObjectNames();
+    for (const QString& name : objectNames) {
+        targetComboBox->addItem(name);
+    }
+
     targetLayout->addWidget(targetComboBox, 0, 1);
     
     // Custom coordinates for when "Custom Coordinates" is selected
@@ -1553,35 +1546,12 @@ void TelescopeGUI::startSlewAndImage() {
         }
     } else {
         // Selected target
-        targetName = targetComboBox->currentText().split(" - ").at(0);
-        
-        // Parse the coordinates from the data
-        QString coords = targetComboBox->currentData().toString();
-        
-        // Convert RA from HH:MM:SS.S format to decimal hours
-        QRegularExpression raRegex("(\\d+)h(\\d+)m([\\d.]+)s");
-        QRegularExpressionMatch raMatch = raRegex.match(coords);
-        
-        if (raMatch.hasMatch()) {
-            int hours = raMatch.captured(1).toInt();
-            int minutes = raMatch.captured(2).toInt();
-            double seconds = raMatch.captured(3).toDouble();
-            
-            ra = hours + (minutes / 60.0) + (seconds / 3600.0);
-        }
-        
-        // Convert Dec from DD:MM:SS format to decimal degrees
-        QRegularExpression decRegex("([+-]?\\d+)°(\\d+)'([\\d.]+)\"");
-        QRegularExpressionMatch decMatch = decRegex.match(coords);
-        
-        if (decMatch.hasMatch()) {
-            int degrees = decMatch.captured(1).toInt();
-            int minutes = decMatch.captured(2).toInt();
-            double seconds = decMatch.captured(3).toDouble();
-            
-            dec = abs(degrees) + (minutes / 60.0) + (seconds / 3600.0);
-            if (degrees < 0) dec = -dec;
-        }
+        int index = targetComboBox->currentIndex() - 1;
+        auto objects = MessierCatalog::getAllObjects();
+        auto currentObject = objects[index];
+        ra = currentObject.sky_position.ra_deg / 15.0;
+        dec = currentObject.sky_position.dec_deg;
+        targetName = currentObject.name;
     }
     
     // Convert RA and Dec to radians as required by the telescope
