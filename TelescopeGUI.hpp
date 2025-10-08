@@ -36,6 +36,7 @@ class OriginBackend;
 #include "TelescopeDataProcessor.hpp"
 #include "CommandInterface.hpp"
 #include "AutoDownloader.hpp"
+#include "CometTracker.hpp"
 
 /**
  * @brief Main application window for the telescope monitor
@@ -57,6 +58,18 @@ public:
     void sendJsonMessage(const QJsonObject &obj);
     
 private slots:
+    void loadCometKernels();
+    void startUpButton();
+    void startDownButton();
+    void startLeftButton();
+    void startRightButton();
+    void slew(int ,int);
+    void cancelSlew();
+    void startCometTracking();
+    void stopCometTracking();
+    void onCometPositionUpdated(const SkyPosition& pos);
+    void onTrackingError(const QString& error);
+    void onSlewCancel(); // cancel slew after delay
     /**
      * @brief Start discovery of telescopes
      */
@@ -127,11 +140,6 @@ private slots:
      * @brief Update the dew heater display
      */
     void updateDewHeaterDisplay();
-    
-    /**
-     * @brief Update the orientation display
-     */
-    void updateOrientationDisplay();
     
     /**
      * @brief Update the time display
@@ -205,6 +213,20 @@ private slots:
     void saveAlpacaLog();
 
 private:
+// TelescopeGUI.hpp additions
+    CometTracker* cometTracker;
+    
+    // UI elements
+    QLineEdit* cometNameEdit;
+    QPushButton* startTrackingButton;
+    QPushButton* stopTrackingButton;
+    QSpinBox* updateIntervalSpinBox;
+    QLabel* cometRaLabel;
+    QLabel* cometDecLabel;
+    QLabel* cometAltLabel;
+    QLabel* cometAzLabel;
+    QLabel* cometObservableLabel;
+  
     /**
      * @brief Set up the UI elements
      */
@@ -253,11 +275,11 @@ private:
     QWidget* createImageTab();
     QWidget* createDiskTab();
     QWidget* createDewHeaterTab();
-    QWidget* createOrientationTab();
     QWidget* createCommandTab();
     QWidget* createDownloadTab();
     QWidget* createSlewAndImageTab();
-    
+    QWidget* createCometTrackingTab();
+  
     // Class members
     TelescopeDataProcessor *dataProcessor;
     QWebSocket *webSocket;
@@ -274,6 +296,7 @@ private:
     bool isConnected = false;
     
     // Mount tab widgets
+    QLabel *mountBatteryCurrentLabel;
     QLabel *mountBatteryLevelLabel;
     QLabel *mountBatteryVoltageLabel;
     QLabel *mountChargerStatusLabel;
@@ -286,6 +309,10 @@ private:
     QLabel *mountIsTrackingLabel;
     QLabel *mountIsGotoOverLabel;
     QLabel *mountNumAlignRefsLabel;
+    QLabel *mountAltitudeLabel;
+    QLabel *mountAzimuthLabel;
+    QLabel *mountAltitudeErrorLabel;
+    QLabel *mountAzimuthErrorLabel;
     QLabel *mountLastUpdateLabel;
     
     // Camera tab widgets
@@ -323,7 +350,6 @@ private:
     QLabel *imageTypeLabel;
     QLabel *imageDecLabel;
     QLabel *imageRaLabel;
-    QLabel *imageOrientationLabel;
     QLabel *imageFovXLabel;
     QLabel *imageFovYLabel;
     QLabel *imageLastUpdateLabel;
@@ -345,12 +371,6 @@ private:
     QProgressBar *dewHeaterLevelBar;
     QLabel *dewHeaterLastUpdateLabel;
     
-    // Orientation tab widgets
-    QLabel *orientationAltitudeLabel;
-    QLabel *orientationLastUpdateLabel;
-
-    CommandInterface *commandInterface;
-
    // Download tab widgets
     QLineEdit *downloadPathEdit;
     QPushButton *browseButton;
@@ -377,6 +397,7 @@ private:
     QLabel *slewStatusLabel;
     QTimer *slewAndImageTimer;
     QTimer *statusUpdateTimer;
+    QTimer *slewTimer;
     bool isSlewingAndImaging = false;
     int imagingTimeRemaining = 0;
     QString currentImagingTargetUuid;

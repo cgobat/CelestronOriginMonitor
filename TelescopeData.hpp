@@ -7,6 +7,7 @@
 struct MountStatus {
     QString batteryLevel;
     double batteryVoltage = 0.0;
+    double batteryCurrent = 0.0;
     QString chargerStatus;
     QString date;
     QString time;
@@ -17,6 +18,10 @@ struct MountStatus {
     bool isGotoOver = false;
     bool isTracking = false;
     int numAlignRefs = 0;
+    double altitude = 0.0;
+    double azimuth = 0.0;
+    double altitudeError = 0.0;
+    double azimuthError = 0.0;
     double enc0 = 0.0;
     double enc1 = 0.0;
 };

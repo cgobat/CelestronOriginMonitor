@@ -77,6 +77,7 @@ public:
     void setImageReady(bool ready);
     bool abortExposure();
     QImage singleShot(int gain, int binning, int exposureTimeMicroseconds);
+    int m_nextSequenceId;
 
 signals:
     void connected();
@@ -104,7 +105,6 @@ private:
     bool m_isExposing;
     bool m_imageReady;
     QImage m_lastImage;
-    int m_nextSequenceId;
     
     // Current telescope status
     TelescopeStatus m_status;

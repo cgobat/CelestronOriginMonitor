@@ -19,6 +19,12 @@ QMAKE_INFO_PLIST = Info.plist
 
 # Include path
 INCLUDEPATH += .
+LIBS += -lnova
+INCLUDEPATH += /opt/homebrew/include ../naif/cspice/include
+
+# CSPICE (adjust paths to where you extracted it)
+INCLUDEPATH += /path/to/cspice/include
+LIBS += ../naif/cspice/lib/cspice.a
 
 # Enable modern C++ features
 CONFIG += c++17
@@ -31,6 +37,12 @@ SOURCES += \
     main.cpp \
     TelescopeDataProcessor.cpp \
     CommandInterface.cpp \
+    TelescopeGUI.cpp \
+    CometObserver.cpp \
+    CometTracker.cpp \
+    CommandInterface.cpp \
+    CoordinateUtils.cpp \
+    TelescopeDataProcessor.cpp \
     TelescopeGUI.cpp
 
 # NEW: Add Alpaca server sources
@@ -43,6 +55,14 @@ HEADERS += \
     TelescopeData.hpp \
     TelescopeDataProcessor.hpp \
     CommandInterface.hpp \
+    TelescopeGUI.hpp \
+    CometObserver.hpp \
+    CometTracker.hpp \
+    CommandInterface.hpp \
+    CoordinateUtils.hpp \
+    MessierCatalog.hpp \
+    TelescopeData.hpp \
+    TelescopeDataProcessor.hpp \
     TelescopeGUI.hpp
 
 # NEW: Add Alpaca server headers  
@@ -51,8 +71,8 @@ HEADERS += \
     AlpacaServer.hpp
 
 # Optional: Add AutoDownloader if you want download functionality in Alpaca
-# SOURCES += AutoDownloader.cpp
-# HEADERS += AutoDownloader.hpp
+SOURCES += AutoDownloader.cpp
+HEADERS += AutoDownloader.hpp
 
 # Default rules
 qnx: target.path = /tmp/$${TARGET}/bin

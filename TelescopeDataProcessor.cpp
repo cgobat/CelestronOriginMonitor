@@ -73,6 +73,7 @@ const TelescopeData& TelescopeDataProcessor::getData() const {
 }
 
 void TelescopeDataProcessor::updateMountStatus(const QJsonObject &obj) {
+    telescopeData.mount.batteryCurrent = obj["BatteryCurrent"].toDouble();
     telescopeData.mount.batteryLevel = obj["BatteryLevel"].toString();
     telescopeData.mount.batteryVoltage = obj["BatteryVoltage"].toDouble();
     telescopeData.mount.chargerStatus = obj["ChargerStatus"].toString();
@@ -85,6 +86,11 @@ void TelescopeDataProcessor::updateMountStatus(const QJsonObject &obj) {
     telescopeData.mount.isGotoOver = obj["IsGotoOver"].toBool();
     telescopeData.mount.isTracking = obj["IsTracking"].toBool();
     telescopeData.mount.numAlignRefs = obj["NumAlignRefs"].toInt();
+    telescopeData.mount.altitude = obj["Alt"].toDouble();
+    telescopeData.mount.altitudeError = obj["AltitudeError"].toDouble();
+    telescopeData.mount.azimuth = obj["Azm"].toDouble();
+    telescopeData.mount.azimuthError = obj["AzimuthError"].toDouble();
+    
     telescopeData.mount.enc0 = obj["Enc0"].toDouble();
     telescopeData.mount.enc1 = obj["Enc1"].toDouble();
     

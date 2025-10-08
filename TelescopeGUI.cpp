@@ -2,10 +2,10 @@
 #include "CommandInterface.hpp"
 #include "AlpacaServer.hpp"
 #include "OriginBackend.hpp"
-#include "MessierCatalog.h"
+#include "MessierCatalog.hpp"
 #include <cmath>
 
-TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent) {
+TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent),cometTracker() {
     setWindowTitle("Celestron Origin Monitor");
     resize(900, 700);
     
@@ -19,13 +19,15 @@ TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent) {
     connect(dataProcessor, &TelescopeDataProcessor::newImageAvailable, this, &TelescopeGUI::updateImageDisplay);
     connect(dataProcessor, &TelescopeDataProcessor::diskStatusUpdated, this, &TelescopeGUI::updateDiskDisplay);
     connect(dataProcessor, &TelescopeDataProcessor::dewHeaterStatusUpdated, this, &TelescopeGUI::updateDewHeaterDisplay);
-    connect(dataProcessor, &TelescopeDataProcessor::orientationStatusUpdated, this, &TelescopeGUI::updateOrientationDisplay);
 
     // NEW: Initialize Alpaca components
     originBackend = new OriginBackend(this);
     alpacaServer = new AlpacaServer(this);
     alpacaServer->setTelescopeBackend(originBackend);
-    
+
+    // NEW: Initialize comet tracker
+    cometTracker = new CometTracker(originBackend, this);
+
     // Connect Alpaca server signals
     connect(alpacaServer, &AlpacaServer::serverStarted, this, &TelescopeGUI::onAlpacaServerStarted);
     connect(alpacaServer, &AlpacaServer::serverStopped, this, &TelescopeGUI::onAlpacaServerStopped);
@@ -50,6 +52,12 @@ TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent) {
     QTimer *timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &TelescopeGUI::updateTimeDisplay);
     timer->start(1000);
+
+    // cancel slew after 100ms
+    slewTimer = new QTimer(this);
+    slewTimer->setSingleShot(true);
+    slewTimer->setInterval(100);
+    connect(slewTimer, &QTimer::timeout, this, &TelescopeGUI::onSlewCancel);
 }
 
 void TelescopeGUI::startDiscovery() {
@@ -161,13 +169,15 @@ void TelescopeGUI::connectToSelectedTelescope() {
     }
     
     QListWidgetItem *selectedItem = telescopeListWidget->currentItem();
+    QString text;
     if (!selectedItem) {
-        statusLabel->setText("Please select a telescope from the list");
-        return;
+        statusLabel->setText("Selected default telescope");
+        text = "192.168.1.169";
     }
-    
+    else
+          text = selectedItem->text();
+
     // Extract the IP address from the selected item
-    QString text = selectedItem->text();
     QRegularExpression ipRegex("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b");
     QRegularExpressionMatch match = ipRegex.match(text);
     
@@ -185,6 +195,21 @@ void TelescopeGUI::connectToSelectedTelescope() {
     
     // Store the currently connected IP
     connectedIpAddress = ipAddress;
+    autoDownloader = new AutoDownloader(webSocket, connectedIpAddress, downloadPathEdit->text(), this);
+
+    // Connect signals
+    connect(autoDownloader, &AutoDownloader::directoryDownloadStarted, 
+	    this, &TelescopeGUI::onDirectoryDownloadStarted);
+    connect(autoDownloader, &AutoDownloader::fileDownloadStarted, 
+	    this, &TelescopeGUI::onFileDownloadStarted);
+    connect(autoDownloader, &AutoDownloader::fileDownloaded, 
+	    this, &TelescopeGUI::onFileDownloaded);
+    connect(autoDownloader, &AutoDownloader::directoryDownloaded, 
+	    this, &TelescopeGUI::onDirectoryDownloaded);
+    connect(autoDownloader, &AutoDownloader::allDownloadsComplete, 
+	    this, &TelescopeGUI::onAllDownloadsComplete);
+    connect(autoDownloader, &AutoDownloader::downloadProgress, 
+	    this, &TelescopeGUI::updateDownloadProgress);
 }
 
 void TelescopeGUI::onWebSocketConnected() {
@@ -223,6 +248,7 @@ void TelescopeGUI::updateMountDisplay() {
     mountBatteryLevelLabel->setText(data.mount.batteryLevel);
     mountBatteryVoltageLabel->setText(QString::number(data.mount.batteryVoltage, 'f', 2) + " V");
     mountChargerStatusLabel->setText(data.mount.chargerStatus);
+    mountBatteryCurrentLabel->setText(QString::number(data.mount.batteryCurrent));
     mountTimeLabel->setText(data.mount.time);
     mountDateLabel->setText(data.mount.date);
     mountTimeZoneLabel->setText(data.mount.timeZone);
@@ -234,6 +260,10 @@ void TelescopeGUI::updateMountDisplay() {
     mountIsTrackingLabel->setText(data.mount.isTracking ? "Yes" : "No");
     mountIsGotoOverLabel->setText(data.mount.isGotoOver ? "Yes" : "No");
     mountNumAlignRefsLabel->setText(QString::number(data.mount.numAlignRefs));
+    mountAzimuthLabel->setText(QString::number(data.mount.azimuth));
+    mountAzimuthErrorLabel->setText(QString::number(data.mount.azimuthError));
+    mountAltitudeLabel->setText(QString::number(data.mount.altitude));
+    mountAltitudeErrorLabel->setText(QString::number(data.mount.altitudeError));
 }
 
 void TelescopeGUI::updateCameraDisplay() {
@@ -279,7 +309,6 @@ void TelescopeGUI::updateImageDisplay() {
     imageTypeLabel->setText(data.lastImage.imageType);
     imageDecLabel->setText(QString::number(data.lastImage.dec * 180.0 / M_PI, 'f', 6) + "°");
     imageRaLabel->setText(QString::number(data.lastImage.ra * 180.0 / M_PI, 'f', 6) + "°");
-    imageOrientationLabel->setText(QString::number(data.lastImage.orientation * 180.0 / M_PI, 'f', 2) + "°");
     imageFovXLabel->setText(QString::number(data.lastImage.fovX * 180.0 / M_PI, 'f', 4) + "°");
     imageFovYLabel->setText(QString::number(data.lastImage.fovY * 180.0 / M_PI, 'f', 4) + "°");
     
@@ -319,11 +348,6 @@ void TelescopeGUI::updateDewHeaterDisplay() {
     dewHeaterLevelBar->setValue(heaterLevel);
 }
 
-void TelescopeGUI::updateOrientationDisplay() {
-    const TelescopeData &data = dataProcessor->getData();
-    orientationAltitudeLabel->setText(QString::number(data.orientation.altitude) + "°");
-}
-
 void TelescopeGUI::updateTimeDisplay() {
     QDateTime now = QDateTime::currentDateTime();
     
@@ -339,7 +363,6 @@ void TelescopeGUI::updateTimeDisplay() {
         updateLastUpdateLabel(imageLastUpdateLabel, data.imageLastUpdate);
         updateLastUpdateLabel(diskLastUpdateLabel, data.diskLastUpdate);
         updateLastUpdateLabel(dewHeaterLastUpdateLabel, data.dewHeaterLastUpdate);
-        updateLastUpdateLabel(orientationLastUpdateLabel, data.orientationLastUpdate);
     }
 }
 
@@ -383,14 +406,13 @@ void TelescopeGUI::setupUI() {
     tabWidget->addTab(createCameraTab(), "Camera");
     tabWidget->addTab(createFocuserTab(), "Focuser");
     tabWidget->addTab(createEnvironmentTab(), "Environment");
-    tabWidget->addTab(createImageTab(), "Image");
+    tabWidget->addTab(createImageTab(), "Show Image");
     tabWidget->addTab(createDiskTab(), "Disk");
     tabWidget->addTab(createDewHeaterTab(), "Dew Heater");
-    tabWidget->addTab(createOrientationTab(), "Orientation");
-    tabWidget->addTab(createCommandTab(), "Commands");
-    tabWidget->addTab(createSlewAndImageTab(), "Slew && Image");   
-    tabWidget->addTab(createDownloadTab(), "Auto Download");
-    tabWidget->addTab(createAlpacaTab(), "Alpaca Server");  // NEW TAB
+    tabWidget->addTab(createSlewAndImageTab(), "Slew & Image");   
+    tabWidget->addTab(createDownloadTab(), "Download");
+    tabWidget->addTab(createAlpacaTab(), "Alpaca");  // NEW TAB
+    tabWidget->addTab(createCometTrackingTab(), "Comets");  // NEW TAB
     
     mainLayout->addWidget(tabWidget);
 }
@@ -402,6 +424,10 @@ QWidget* TelescopeGUI::createMountTab() {
     int row = 0;
     
     // Add labels for mount data
+    layout->addWidget(new QLabel("Battery Current:"), row, 0);
+    mountBatteryCurrentLabel = new QLabel("-", tab);
+    layout->addWidget(mountBatteryCurrentLabel, row++, 1);
+    
     layout->addWidget(new QLabel("Battery Level:"), row, 0);
     mountBatteryLevelLabel = new QLabel("-", tab);
     layout->addWidget(mountBatteryLevelLabel, row++, 1);
@@ -449,7 +475,23 @@ QWidget* TelescopeGUI::createMountTab() {
     layout->addWidget(new QLabel("Num Align Refs:"), row, 0);
     mountNumAlignRefsLabel = new QLabel("-", tab);
     layout->addWidget(mountNumAlignRefsLabel, row++, 1);
-    
+
+    layout->addWidget(new QLabel("Azimuth:"), row, 0);
+    mountAzimuthLabel = new QLabel("-", tab);
+    layout->addWidget(mountAzimuthLabel, row++, 1);
+
+    layout->addWidget(new QLabel("Azimuth Error:"), row, 0);
+    mountAzimuthErrorLabel = new QLabel("-", tab);
+    layout->addWidget(mountAzimuthErrorLabel, row++, 1);
+
+    layout->addWidget(new QLabel("Altitude:"), row, 0);
+    mountAltitudeLabel = new QLabel("-", tab);
+    layout->addWidget(mountAltitudeLabel, row++, 1);
+
+    layout->addWidget(new QLabel("Altitude Error:"), row, 0);
+    mountAltitudeErrorLabel = new QLabel("-", tab);
+    layout->addWidget(mountAltitudeErrorLabel, row++, 1);
+        
     layout->addWidget(new QLabel("Last Update:"), row, 0);
     mountLastUpdateLabel = new QLabel("-", tab);
     layout->addWidget(mountLastUpdateLabel, row++, 1);
@@ -622,10 +664,6 @@ QWidget* TelescopeGUI::createImageTab() {
     imageRaLabel = new QLabel("-", infoPanel);
     infoLayout->addWidget(imageRaLabel, row++, 1);
     
-    infoLayout->addWidget(new QLabel("Orientation:"), row, 0);
-    imageOrientationLabel = new QLabel("-", infoPanel);
-    infoLayout->addWidget(imageOrientationLabel, row++, 1);
-    
     infoLayout->addWidget(new QLabel("Field of View X:"), row, 0);
     imageFovXLabel = new QLabel("-", infoPanel);
     infoLayout->addWidget(imageFovXLabel, row++, 1);
@@ -633,7 +671,22 @@ QWidget* TelescopeGUI::createImageTab() {
     infoLayout->addWidget(new QLabel("Field of View Y:"), row, 0);
     imageFovYLabel = new QLabel("-", infoPanel);
     infoLayout->addWidget(imageFovYLabel, row++, 1);
-    
+
+    // Hand control buttons
+    auto *upButton = new QPushButton("Up");
+    auto *downButton = new QPushButton("Down");
+    auto *leftButton = new QPushButton("Left");
+    auto *rightButton = new QPushButton("Right");
+    connect(upButton, &QPushButton::clicked, this, &TelescopeGUI::startUpButton);
+    connect(downButton, &QPushButton::clicked, this, &TelescopeGUI::startDownButton);
+    connect(leftButton, &QPushButton::clicked, this, &TelescopeGUI::startLeftButton);
+    connect(rightButton, &QPushButton::clicked, this, &TelescopeGUI::startRightButton);
+
+    infoLayout->addWidget(upButton, row++, 1);
+    infoLayout->addWidget(leftButton, row, 0);
+    infoLayout->addWidget(rightButton, row++, 2);
+    infoLayout->addWidget(downButton, row++, 1);
+
     infoLayout->addWidget(new QLabel("Last Update:"), row, 0);
     imageLastUpdateLabel = new QLabel("-", infoPanel);
     infoLayout->addWidget(imageLastUpdateLabel, row++, 1);
@@ -730,29 +783,6 @@ QWidget* TelescopeGUI::createDewHeaterTab() {
     
     layout->setRowStretch(row, 1);
     return tab;
-}
-
-QWidget* TelescopeGUI::createOrientationTab() {
-    QWidget *tab = new QWidget();
-    QGridLayout *layout = new QGridLayout(tab);
-    
-    int row = 0;
-    
-    layout->addWidget(new QLabel("Altitude:"), row, 0);
-    orientationAltitudeLabel = new QLabel("-", tab);
-    layout->addWidget(orientationAltitudeLabel, row++, 1);
-    
-    layout->addWidget(new QLabel("Last Update:"), row, 0);
-    orientationLastUpdateLabel = new QLabel("-", tab);
-    layout->addWidget(orientationLastUpdateLabel, row++, 1);
-    
-    layout->setRowStretch(row, 1);
-    return tab;
-}
-
-QWidget* TelescopeGUI::createCommandTab() {
-    CommandInterface *commandInterface = new CommandInterface(this, this);
-    return commandInterface;
 }
 
 void TelescopeGUI::setupWebSocket() {
@@ -1005,27 +1035,7 @@ void TelescopeGUI::startAutomaticDownload() {
         }
     }
     
-    // Create auto downloader if needed
-    if (!autoDownloader) {
-        autoDownloader = new AutoDownloader(webSocket, connectedIpAddress, downloadPath, this);
-        
-        // Connect signals
-        connect(autoDownloader, &AutoDownloader::directoryDownloadStarted, 
-                this, &TelescopeGUI::onDirectoryDownloadStarted);
-        connect(autoDownloader, &AutoDownloader::fileDownloadStarted, 
-                this, &TelescopeGUI::onFileDownloadStarted);
-        connect(autoDownloader, &AutoDownloader::fileDownloaded, 
-                this, &TelescopeGUI::onFileDownloaded);
-        connect(autoDownloader, &AutoDownloader::directoryDownloaded, 
-                this, &TelescopeGUI::onDirectoryDownloaded);
-        connect(autoDownloader, &AutoDownloader::allDownloadsComplete, 
-                this, &TelescopeGUI::onAllDownloadsComplete);
-        connect(autoDownloader, &AutoDownloader::downloadProgress, 
-                this, &TelescopeGUI::updateDownloadProgress);
-    } else {
-        // Update download path
-        autoDownloader->setDownloadPath(downloadPath);
-    }
+    autoDownloader->setDownloadPath(downloadPath);
     
     // Start download
     isDownloading = true;
@@ -1405,6 +1415,85 @@ QWidget* TelescopeGUI::createAlpacaTab()
     mainLayout->addWidget(logGroup);
     
     // Add stretch to push everything up
+    mainLayout->addStretch();
+    
+    return tab;
+}
+
+QWidget* TelescopeGUI::createCometTrackingTab()
+{
+    QWidget *tab = new QWidget();
+    QVBoxLayout *mainLayout = new QVBoxLayout(tab);
+    
+    // Comet selection
+    QGroupBox *cometGroup = new QGroupBox("Comet Selection", tab);
+    QFormLayout *cometLayout = new QFormLayout(cometGroup);
+    
+    cometNameEdit = new QLineEdit(cometGroup);
+    cometNameEdit->setText("1004054"); // Default C/2025 A6
+    cometLayout->addRow("Comet ID:", cometNameEdit);
+    
+    QPushButton *loadKernelsButton = new QPushButton("Load SPICE Kernels", cometGroup);
+    connect(loadKernelsButton, &QPushButton::clicked, this, &TelescopeGUI::loadCometKernels);
+    cometLayout->addRow(loadKernelsButton);
+    
+    mainLayout->addWidget(cometGroup);
+    
+    // Tracking controls
+    QGroupBox *trackingGroup = new QGroupBox("Tracking Control", tab);
+    QVBoxLayout *trackingLayout = new QVBoxLayout(trackingGroup);
+    
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    
+    startTrackingButton = new QPushButton("Start Tracking", trackingGroup);
+    connect(startTrackingButton, &QPushButton::clicked, this, &TelescopeGUI::startCometTracking);
+    buttonLayout->addWidget(startTrackingButton);
+    
+    stopTrackingButton = new QPushButton("Stop Tracking", trackingGroup);
+    stopTrackingButton->setEnabled(false);
+    connect(stopTrackingButton, &QPushButton::clicked, this, &TelescopeGUI::stopCometTracking);
+    buttonLayout->addWidget(stopTrackingButton);
+    
+    trackingLayout->addLayout(buttonLayout);
+    
+    // Update interval
+    QHBoxLayout *intervalLayout = new QHBoxLayout();
+    intervalLayout->addWidget(new QLabel("Update Interval (seconds):"));
+    updateIntervalSpinBox = new QSpinBox(trackingGroup);
+    updateIntervalSpinBox->setRange(10, 300);
+    updateIntervalSpinBox->setValue(30);
+    intervalLayout->addWidget(updateIntervalSpinBox);
+    trackingLayout->addLayout(intervalLayout);
+    
+    mainLayout->addWidget(trackingGroup);
+    
+    // Current position display
+    QGroupBox *positionGroup = new QGroupBox("Current Comet Position", tab);
+    QGridLayout *positionLayout = new QGridLayout(positionGroup);
+    
+    int row = 0;
+    positionLayout->addWidget(new QLabel("RA:"), row, 0);
+    cometRaLabel = new QLabel("-", positionGroup);
+    positionLayout->addWidget(cometRaLabel, row++, 1);
+    
+    positionLayout->addWidget(new QLabel("Dec:"), row, 0);
+    cometDecLabel = new QLabel("-", positionGroup);
+    positionLayout->addWidget(cometDecLabel, row++, 1);
+    
+    positionLayout->addWidget(new QLabel("Altitude:"), row, 0);
+    cometAltLabel = new QLabel("-", positionGroup);
+    positionLayout->addWidget(cometAltLabel, row++, 1);
+    
+    positionLayout->addWidget(new QLabel("Azimuth:"), row, 0);
+    cometAzLabel = new QLabel("-", positionGroup);
+    positionLayout->addWidget(cometAzLabel, row++, 1);
+    
+    positionLayout->addWidget(new QLabel("Observable:"), row, 0);
+    cometObservableLabel = new QLabel("-", positionGroup);
+    positionLayout->addWidget(cometObservableLabel, row++, 1);
+    
+    mainLayout->addWidget(positionGroup);
+    
     mainLayout->addStretch();
     
     return tab;
@@ -1807,3 +1896,124 @@ void TelescopeGUI::checkMountStatus() {
     startSlewButton->setEnabled(canSlew && !isSlewingAndImaging);
 }
 
+// TelescopeGUI.cpp additions
+void TelescopeGUI::loadCometKernels()
+{
+    QString kernelDir = QFileDialog::getExistingDirectory(this, 
+        "Select SPICE Kernel Directory");
+    
+    if (kernelDir.isEmpty()) return;
+    
+    if (cometTracker->loadCometData(
+        kernelDir + "/c2025a6.bsp",
+        kernelDir + "/naif0012.tls",
+        kernelDir + "/de440s.bsp"))
+    {
+        // Set observer location (Cambridge, UK)
+        ObserverLocation loc;
+        loc.latitude = 52.2053;
+        loc.longitude = 0.1218;
+        loc.elevation = 20.0;
+        cometTracker->setObserverLocation(loc);
+        
+        QMessageBox::information(this, "Success", "SPICE kernels loaded successfully");
+    } else {
+        QMessageBox::warning(this, "Error", "Failed to load SPICE kernels");
+    }
+}
+
+static const int SLEW_RATE = 9;
+
+void TelescopeGUI::slew(int alt, int az)
+{
+QJsonObject slewCommand;
+    slewCommand["Command"] = "Slew";
+    slewCommand["Destination"] = "Mount";
+    slewCommand["SequenceID"] = originBackend->m_nextSequenceId++;
+    slewCommand["Source"] = "QtApp";
+    slewCommand["Type"] = "Command";
+    slewCommand["AltRate"] = alt;  // Positive for up
+    slewCommand["AzmRate"] = az;
+    
+    sendJsonMessage(slewCommand);
+}
+
+void TelescopeGUI::cancelSlew()
+{
+  slewTimer->stop();
+  slewTimer->start();
+}
+
+void TelescopeGUI::onSlewCancel()
+{
+  slew(0, 0);
+}
+
+void TelescopeGUI::startUpButton()
+{
+    qDebug() << "Up Button - Starting upward slew";
+    slew(SLEW_RATE, 0);
+    cancelSlew();
+}
+
+void TelescopeGUI::startDownButton()
+{
+    qDebug() << "Down Button - Starting downward slew";
+    
+    slew(-SLEW_RATE, 0);  // Negative for down
+    cancelSlew();
+}
+
+void TelescopeGUI::startLeftButton()
+{
+    qDebug() << "Left Button - Starting leftward slew";
+    
+    slew(0, -SLEW_RATE);  // Negative for left (counterclockwise)
+    cancelSlew();
+
+}
+
+void TelescopeGUI::startRightButton()
+{
+    qDebug() << "Right Button - Starting rightward slew";
+    
+    slew(0, SLEW_RATE);  // Positive for right (clockwise)
+    cancelSlew();
+}
+
+void TelescopeGUI::startCometTracking()
+{
+    QString cometName = cometNameEdit->text().trimmed();
+    if (cometName.isEmpty()) {
+        QMessageBox::warning(this, "Error", "Please enter a comet ID");
+        return;
+    }
+    
+    cometTracker->setCometName(cometName);
+    cometTracker->startTracking(updateIntervalSpinBox->value());
+    
+    startTrackingButton->setEnabled(false);
+    stopTrackingButton->setEnabled(true);
+}
+
+void TelescopeGUI::stopCometTracking()
+{
+    cometTracker->stopTracking();
+    
+    startTrackingButton->setEnabled(true);
+    stopTrackingButton->setEnabled(false);
+}
+
+void TelescopeGUI::onCometPositionUpdated(const SkyPosition& pos)
+{
+    cometRaLabel->setText(QString::number(pos.ra, 'f', 6) + " hours");
+    cometDecLabel->setText(QString::number(pos.dec, 'f', 6) + "°");
+    cometAltLabel->setText(QString::number(pos.alt, 'f', 2) + "°");
+    cometAzLabel->setText(QString::number(pos.az, 'f', 2) + "°");
+    cometObservableLabel->setText(pos.isObservable ? "Yes" : "No");
+}
+
+void TelescopeGUI::onTrackingError(const QString& error)
+{
+    QMessageBox::warning(this, "Tracking Error", error);
+}
