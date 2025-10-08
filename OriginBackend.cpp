@@ -148,6 +148,100 @@ bool OriginBackend::syncPosition(double ra, double dec)
     return true;
 }
 
+bool OriginBackend::takeSnapshot(double exposure, int iso)
+{
+    if (!m_isConnected) {
+        return false;
+    }
+
+    // RunSampleCapture command triggers a single snapshot
+    QJsonObject params;
+    params["ExposureTime"] = exposure;
+    params["ISO"] = iso;
+    
+    sendCommand("RunSampleCapture", "TaskController", params);
+    qDebug() << "Taking snapshot: Exposure =" << exposure << "ISO =" << iso;
+    return true;
+}
+
+// ============================================================================
+// MODE CONTROL
+// ============================================================================
+
+bool OriginBackend::setManualMode()
+{
+    if (!m_isConnected) {
+        return false;
+    }
+
+    QJsonObject cmd;    
+    sendCommand("SetEnableManual", "LiveStream", cmd);
+    qDebug() << "Setting manual mode";
+    return true;
+}
+
+bool OriginBackend::setAutoMode()
+{
+    if (!m_isConnected) {
+        return false;
+    }
+
+    QJsonObject cmd;
+    sendCommand("SetEnableAuto", "LiveStream", cmd);
+    qDebug() << "Setting auto mode";
+    return true;
+}
+
+bool OriginBackend::getCameraMode()
+{
+    if (!m_isConnected) {
+        return false;
+    }
+
+    QJsonObject cmd;
+    sendCommand("GetEnableManual", "LiveStream", cmd);
+    return true;
+}
+
+bool OriginBackend::getCaptureParameters()
+{
+    if (!m_isConnected) {
+        return false;
+    }
+
+    QJsonObject cmd;    
+    sendCommand("GetCaptureParameters", "Camera", cmd);
+    return true;
+}
+
+bool OriginBackend::setCaptureParameters(double exposure, int iso)
+{
+    if (!m_isConnected) {
+        return false;
+    }
+    
+    QJsonObject cmd;
+    cmd["Exposure"] = exposure;
+    cmd["ISO"] = iso;
+    sendCommand("SetCaptureParameters", "Camera", cmd);
+    return true;
+}
+
+// ============================================================================
+// CAMERA INFO
+// ============================================================================
+
+bool OriginBackend::getCameraInfo()
+{
+    if (!m_isConnected) {
+        return false;
+    }
+
+    QJsonObject cmd;
+    sendCommand("GetCameraInfo", "Camera", cmd);
+    return true;
+}
+
 bool OriginBackend::abortMotion()
 {
     if (!m_isConnected) {

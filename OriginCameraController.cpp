@@ -11,7 +11,7 @@ OriginCameraController::OriginCameraController(OriginBackend* backend,
                                                const QString& telescopeIP,
                                                QObject *parent)
     : QObject(parent)
-    , m_backend(backend)
+    , originBackend(backend)
     , m_networkManager(new QNetworkAccessManager(this))
     , m_telescopeIP(telescopeIP)
     , m_sequenceId(20000)
@@ -41,48 +41,6 @@ OriginCameraController::~OriginCameraController()
 }
 
 // ============================================================================
-// MODE CONTROL
-// ============================================================================
-
-void OriginCameraController::setManualMode()
-{
-    QJsonObject cmd;
-    cmd["Command"] = "SetEnableManual";
-    cmd["Destination"] = "LiveStream";
-    cmd["SequenceID"] = m_sequenceId++;
-    cmd["Source"] = "CometTracker";
-    cmd["Type"] = "Command";
-    
-    sendCommand(cmd);
-    qDebug() << "Setting manual mode";
-}
-
-void OriginCameraController::setAutoMode()
-{
-    QJsonObject cmd;
-    cmd["Command"] = "SetEnableAuto";
-    cmd["Destination"] = "LiveStream";
-    cmd["SequenceID"] = m_sequenceId++;
-    cmd["Source"] = "CometTracker";
-    cmd["Type"] = "Command";
-    
-    sendCommand(cmd);
-    qDebug() << "Setting auto mode";
-}
-
-void OriginCameraController::getCameraMode()
-{
-    QJsonObject cmd;
-    cmd["Command"] = "GetEnableManual";
-    cmd["Destination"] = "LiveStream";
-    cmd["SequenceID"] = m_sequenceId++;
-    cmd["Source"] = "CometTracker";
-    cmd["Type"] = "Command";
-    
-    sendCommand(cmd);
-}
-
-// ============================================================================
 // EXPOSURE SETTINGS
 // ============================================================================
 
@@ -98,16 +56,7 @@ void OriginCameraController::setISO(int iso)
 
 void OriginCameraController::setCaptureParameters(double exposure, int iso)
 {
-    QJsonObject cmd;
-    cmd["Command"] = "SetCaptureParameters";
-    cmd["Destination"] = "Camera";
-    cmd["SequenceID"] = m_sequenceId++;
-    cmd["Source"] = "CometTracker";
-    cmd["Type"] = "Command";
-    cmd["Exposure"] = exposure;
-    cmd["ISO"] = iso;
-    
-    sendCommand(cmd);
+    originBackend->setCaptureParameters(exposure, iso);
     
     // Update local cache
     m_currentExposure = exposure;
@@ -119,16 +68,24 @@ void OriginCameraController::setCaptureParameters(double exposure, int iso)
     emit captureParametersChanged(exposure, iso);
 }
 
+void OriginCameraController::setManualMode()
+{
+  originBackend->setManualMode();
+}
+
+void OriginCameraController::setAutoMode()
+{
+  originBackend->setAutoMode();
+}
+
+void OriginCameraController::getCameraMode()
+{
+  originBackend->getCameraMode();
+}
+
 void OriginCameraController::getCaptureParameters()
 {
-    QJsonObject cmd;
-    cmd["Command"] = "GetCaptureParameters";
-    cmd["Destination"] = "Camera";
-    cmd["SequenceID"] = m_sequenceId++;
-    cmd["Source"] = "CometTracker";
-    cmd["Type"] = "Command";
-    
-    sendCommand(cmd);
+  originBackend->getCaptureParameters();
 }
 
 // ============================================================================
@@ -137,23 +94,7 @@ void OriginCameraController::getCaptureParameters()
 
 void OriginCameraController::takeSingleSnapshot()
 {
-    takeSnapshot(m_currentExposure, m_currentISO);
-}
-
-void OriginCameraController::takeSnapshot(double exposure, int iso)
-{
-    // RunSampleCapture command triggers a single snapshot
-    QJsonObject cmd;
-    cmd["Command"] = "RunSampleCapture";
-    cmd["Destination"] = "TaskController";
-    cmd["SequenceID"] = m_sequenceId++;
-    cmd["Source"] = "CometTracker";
-    cmd["Type"] = "Command";
-    cmd["ExposureTime"] = exposure;
-    cmd["ISO"] = iso;
-    
-    sendCommand(cmd);
-    qDebug() << "Taking snapshot: Exposure =" << exposure << "ISO =" << iso;
+    originBackend->takeSnapshot(m_currentExposure, m_currentISO);
 }
 
 void OriginCameraController::downloadSnapshot(const QString& fileLocation,
@@ -193,36 +134,8 @@ void OriginCameraController::downloadSnapshot(const QString& fileLocation,
 }
 
 // ============================================================================
-// CAMERA INFO
-// ============================================================================
-
-void OriginCameraController::getCameraInfo()
-{
-    QJsonObject cmd;
-    cmd["Command"] = "GetCameraInfo";
-    cmd["Destination"] = "Camera";
-    cmd["SequenceID"] = m_sequenceId++;
-    cmd["Source"] = "CometTracker";
-    cmd["Type"] = "Command";
-    
-    sendCommand(cmd);
-}
-
-// ============================================================================
 // PRIVATE METHODS
 // ============================================================================
-
-void OriginCameraController::sendCommand(const QJsonObject& command)
-{
-    if (!m_backend) {
-        emit errorOccurred("Backend not available");
-        return;
-    }
-    
-    // Send via OriginBackend's WebSocket connection
-    // Note: You need to add sendCommand() method to OriginBackend
-    m_backend->sendCommand(command);
-}
 
 void OriginCameraController::handleWebSocketMessage(const QJsonObject& message)
 {

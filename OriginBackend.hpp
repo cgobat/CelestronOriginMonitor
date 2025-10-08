@@ -68,6 +68,7 @@ public:
     // Status access
     TelescopeStatus status() const;
     double temperature() const;
+    int m_nextSequenceId;
 
     // Camera operations
     bool isExposing() const;
@@ -77,13 +78,40 @@ public:
     void setImageReady(bool ready);
     bool abortExposure();
     QImage singleShot(int gain, int binning, int exposureTimeMicroseconds);
-    int m_nextSequenceId;
+    void sendCommand(const QString& command, const QString& destination, 
+                    const QJsonObject& params = QJsonObject());
+    bool takeSnapshot(double exposure, int iso);
+    bool setManualMode();
+    bool setAutoMode();
+    bool getCameraMode();
+    bool getCaptureParameters();
+    bool setCaptureParameters(double exposure, int iso);
+    bool getCameraInfo();
+    // Camera mode control
+    void setCameraManualMode();
+    void setCameraAutoMode();
+     
+    // Camera exposure/ISO control
+    void setCameraExposure(double seconds);
+    void setCameraISO(int iso);
+    
+    // Snapshot control
+    void takeSingleSnapshot();
+    
+    // Camera info
 
 signals:
     void connected();
     void disconnected();
     void statusUpdated();
     void imageReady();
+    // Camera-related signals
+    void cameraModeChanged(bool isManual);
+    void captureParametersChanged(double exposure, int iso);
+    void cameraInfoReceived(const QString& cameraID, const QString& model);
+    void snapshotRequested();  // Emitted when snapshot command sent
+    void tiffImageDownloaded(const QString& filePath, const QByteArray& imageData,
+                            double ra, double dec, double exposure);
 
 private slots:
     void onWebSocketConnected();
@@ -120,8 +148,6 @@ private:
     void cleanupLogging();
 
     // Helper methods
-    void sendCommand(const QString& command, const QString& destination, 
-                    const QJsonObject& params = QJsonObject());
     QJsonObject createCommand(const QString& command, const QString& destination, 
                              const QJsonObject& params = QJsonObject());
     void updateStatusFromProcessor();
@@ -130,4 +156,16 @@ private:
     double radiansToDegrees(double radians);
     double hoursToRadians(double hours);
     double degreesToRadians(double degrees);
+    // Camera state tracking
+    bool m_cameraManualMode;
+    double m_currentExposure;
+    int m_currentISO;
+    bool m_snapshotInProgress;
+    
+    // Image metadata from last NewImageReady
+    double m_lastImageRa;
+    double m_lastImageDec;
+    double m_lastImageExposure;
+    QString m_lastImageFilePath;
+
 };

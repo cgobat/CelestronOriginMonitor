@@ -43,8 +43,9 @@ SOURCES += \
     CommandInterface.cpp \
     CoordinateUtils.cpp \
     TelescopeDataProcessor.cpp \
-    TelescopeGUI.cpp
-
+    TelescopeGUI.cpp \
+    OriginCameraController.cpp \
+    
 # NEW: Add Alpaca server sources
 SOURCES += \
     OriginBackend.cpp \
@@ -63,8 +64,9 @@ HEADERS += \
     MessierCatalog.hpp \
     TelescopeData.hpp \
     TelescopeDataProcessor.hpp \
-    TelescopeGUI.hpp
-
+    TelescopeGUI.hpp \
+    OriginCameraController.hpp \
+    
 # NEW: Add Alpaca server headers  
 HEADERS += \
     OriginBackend.hpp \

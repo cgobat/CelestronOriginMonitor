@@ -37,6 +37,7 @@ class OriginBackend;
 #include "CommandInterface.hpp"
 #include "AutoDownloader.hpp"
 #include "CometTracker.hpp"
+#include "OriginCameraController.hpp"  // ADD THIS
 
 /**
  * @brief Main application window for the telescope monitor
@@ -211,6 +212,13 @@ private slots:
     void onAlpacaRequestReceived(const QString& method, const QString& path);
     void clearAlpacaLog();
     void saveAlpacaLog();
+    // snaphot camera slots
+    void setupCameraController();
+    void onCameraModeChanged(bool isManual);
+    void onCaptureParametersChanged(double exposure, int iso);
+    void onSnapshotReady(const QString& fileLocation, double ra, double dec);
+    void onSnapshotDownloaded(const QString& localPath);
+    void onSnapshotDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
 
 private:
 // TelescopeGUI.hpp additions
@@ -354,6 +362,14 @@ private:
     QLabel *imageFovYLabel;
     QLabel *imageLastUpdateLabel;
     QLabel *imagePreviewLabel;
+    OriginCameraController* m_cameraController;
+    QString m_snapshotSavePath;
+    
+    // Camera control UI widgets
+    QDoubleSpinBox* exposureSpinBox;
+    QSpinBox* isoSpinBox;
+    QPushButton* snapshotButton;
+    QProgressBar* snapshotProgressBar;
     
     // Disk tab widgets
     QLabel *diskCapacityLabel;

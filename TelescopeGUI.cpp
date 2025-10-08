@@ -22,6 +22,8 @@ TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent),cometTracker()
 
     // NEW: Initialize Alpaca components
     originBackend = new OriginBackend(this);
+    setupCameraController();
+
     alpacaServer = new AlpacaServer(this);
     alpacaServer->setTelescopeBackend(originBackend);
 
@@ -633,16 +635,164 @@ QWidget* TelescopeGUI::createEnvironmentTab() {
     layout->setRowStretch(row, 1);
     return tab;
 }
+// ============================================================================
+// ENHANCED SHOW IMAGE TAB - Modified createImageTab() for TelescopeGUI.cpp
+// This integrates camera snapshot/exposure/ISO controls into your existing tab
+// ============================================================================
 
 QWidget* TelescopeGUI::createImageTab() {
     QWidget *tab = new QWidget();
     QVBoxLayout *mainLayout = new QVBoxLayout(tab);
     
-    // Create two panels - left for info, right for image
-    QSplitter *splitter = new QSplitter(Qt::Horizontal, tab);
-    mainLayout->addWidget(splitter);
+    // ========================================================================
+    // TOP SECTION: Camera Control Panel (NEW)
+    // ========================================================================
+    QGroupBox *cameraControlGroup = new QGroupBox("Camera Control", tab);
+    QGridLayout *cameraControlLayout = new QGridLayout(cameraControlGroup);
     
-    // Left panel - info
+    int ctrlRow = 0;
+    
+    // Mode Control
+    cameraControlLayout->addWidget(new QLabel("Mode:"), ctrlRow, 0);
+    QHBoxLayout *modeLayout = new QHBoxLayout();
+    QPushButton *manualModeBtn = new QPushButton("Manual", tab);
+    QPushButton *autoModeBtn = new QPushButton("Auto", tab);
+    manualModeBtn->setCheckable(true);
+    autoModeBtn->setCheckable(true);
+    manualModeBtn->setMinimumWidth(80);
+    autoModeBtn->setMinimumWidth(80);
+    
+    connect(manualModeBtn, &QPushButton::clicked, this, [this, manualModeBtn, autoModeBtn]() {
+        if (m_cameraController) {
+            m_cameraController->setManualMode();
+            manualModeBtn->setChecked(true);
+            autoModeBtn->setChecked(false);
+        }
+    });
+    
+    connect(autoModeBtn, &QPushButton::clicked, this, [this, manualModeBtn, autoModeBtn]() {
+        if (m_cameraController) {
+            m_cameraController->setAutoMode();
+            autoModeBtn->setChecked(true);
+            manualModeBtn->setChecked(false);
+        }
+    });
+    
+    modeLayout->addWidget(manualModeBtn);
+    modeLayout->addWidget(autoModeBtn);
+    modeLayout->addStretch();
+    cameraControlLayout->addLayout(modeLayout, ctrlRow++, 1, 1, 2);
+    
+    // Exposure Control
+    cameraControlLayout->addWidget(new QLabel("Exposure (sec):"), ctrlRow, 0);
+    exposureSpinBox = new QDoubleSpinBox(tab);
+    exposureSpinBox->setRange(0.001, 300.0);
+    exposureSpinBox->setValue(0.1);
+    exposureSpinBox->setDecimals(3);
+    exposureSpinBox->setSingleStep(0.1);
+    exposureSpinBox->setMinimumWidth(120);
+    
+    connect(exposureSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, [this](double value) {
+                if (m_cameraController) {
+                    m_cameraController->setExposure(value);
+                }
+            });
+    
+    cameraControlLayout->addWidget(exposureSpinBox, ctrlRow++, 1);
+    
+    // ISO Control
+    cameraControlLayout->addWidget(new QLabel("ISO:"), ctrlRow, 0);
+    isoSpinBox = new QSpinBox(tab);
+    isoSpinBox->setRange(100, 6400);
+    isoSpinBox->setValue(200);
+    isoSpinBox->setSingleStep(100);
+    isoSpinBox->setMinimumWidth(120);
+    
+    connect(isoSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
+            this, [this](int value) {
+                if (m_cameraController) {
+                    m_cameraController->setISO(value);
+                }
+            });
+    
+    cameraControlLayout->addWidget(isoSpinBox, ctrlRow++, 1);
+    
+    // Quick Presets
+    cameraControlLayout->addWidget(new QLabel("Presets:"), ctrlRow, 0);
+    QHBoxLayout *presetsLayout = new QHBoxLayout();
+    
+    QPushButton *fastBtn = new QPushButton("Fast", tab);
+    fastBtn->setToolTip("0.02s, ISO 200");
+    QPushButton *mediumBtn = new QPushButton("Medium", tab);
+    mediumBtn->setToolTip("0.1s, ISO 200");
+    QPushButton *longBtn = new QPushButton("Long", tab);
+    longBtn->setToolTip("1.0s, ISO 400");
+    QPushButton *deepBtn = new QPushButton("Deep Sky", tab);
+    deepBtn->setToolTip("10.0s, ISO 800");
+    
+    connect(fastBtn, &QPushButton::clicked, this, [this]() {
+        exposureSpinBox->setValue(0.02);
+        isoSpinBox->setValue(200);
+        if (m_cameraController) m_cameraController->setCaptureParameters(0.02, 200);
+    });
+    
+    connect(mediumBtn, &QPushButton::clicked, this, [this]() {
+        exposureSpinBox->setValue(0.1);
+        isoSpinBox->setValue(200);
+        if (m_cameraController) m_cameraController->setCaptureParameters(0.1, 200);
+    });
+    
+    connect(longBtn, &QPushButton::clicked, this, [this]() {
+        exposureSpinBox->setValue(1.0);
+        isoSpinBox->setValue(400);
+        if (m_cameraController) m_cameraController->setCaptureParameters(1.0, 400);
+    });
+    
+    connect(deepBtn, &QPushButton::clicked, this, [this]() {
+        exposureSpinBox->setValue(10.0);
+        isoSpinBox->setValue(800);
+        if (m_cameraController) m_cameraController->setCaptureParameters(10.0, 800);
+    });
+    
+    presetsLayout->addWidget(fastBtn);
+    presetsLayout->addWidget(mediumBtn);
+    presetsLayout->addWidget(longBtn);
+    presetsLayout->addWidget(deepBtn);
+    presetsLayout->addStretch();
+    cameraControlLayout->addLayout(presetsLayout, ctrlRow++, 1, 1, 2);
+    
+    // Snapshot Button
+    cameraControlLayout->addWidget(new QLabel("Action:"), ctrlRow, 0);
+    snapshotButton = new QPushButton("Take Snapshot", tab);
+    snapshotButton->setStyleSheet("font-weight: bold; padding: 8px; background-color: #4CAF50; color: white;");
+    snapshotButton->setMinimumHeight(40);
+    
+    connect(snapshotButton, &QPushButton::clicked, this, [this]() {
+        if (m_cameraController) {
+            m_cameraController->takeSingleSnapshot();
+            snapshotButton->setEnabled(false);
+            snapshotButton->setText("Capturing...");
+        }
+    });
+    
+    cameraControlLayout->addWidget(snapshotButton, ctrlRow++, 1, 1, 2);
+    
+    // Download Progress Bar
+    snapshotProgressBar = new QProgressBar(tab);
+    snapshotProgressBar->setVisible(false);
+    snapshotProgressBar->setTextVisible(true);
+    cameraControlLayout->addWidget(snapshotProgressBar, ctrlRow++, 1, 1, 2);
+    
+    mainLayout->addWidget(cameraControlGroup);
+    
+    // ========================================================================
+    // MIDDLE SECTION: Original Two-Panel Layout
+    // ========================================================================
+    QSplitter *splitter = new QSplitter(Qt::Horizontal, tab);
+    mainLayout->addWidget(splitter, 1);  // Give it stretch priority
+    
+    // Left panel - Image info
     QWidget *infoPanel = new QWidget(splitter);
     QGridLayout *infoLayout = new QGridLayout(infoPanel);
     
@@ -650,6 +800,7 @@ QWidget* TelescopeGUI::createImageTab() {
     
     infoLayout->addWidget(new QLabel("File Location:"), row, 0);
     imageFileLabel = new QLabel("-", infoPanel);
+    imageFileLabel->setWordWrap(true);
     infoLayout->addWidget(imageFileLabel, row++, 1);
     
     infoLayout->addWidget(new QLabel("Image Type:"), row, 0);
@@ -671,7 +822,7 @@ QWidget* TelescopeGUI::createImageTab() {
     infoLayout->addWidget(new QLabel("Field of View Y:"), row, 0);
     imageFovYLabel = new QLabel("-", infoPanel);
     infoLayout->addWidget(imageFovYLabel, row++, 1);
-
+    
     // Hand control buttons
     auto *upButton = new QPushButton("Up");
     auto *downButton = new QPushButton("Down");
@@ -681,12 +832,12 @@ QWidget* TelescopeGUI::createImageTab() {
     connect(downButton, &QPushButton::clicked, this, &TelescopeGUI::startDownButton);
     connect(leftButton, &QPushButton::clicked, this, &TelescopeGUI::startLeftButton);
     connect(rightButton, &QPushButton::clicked, this, &TelescopeGUI::startRightButton);
-
+    
     infoLayout->addWidget(upButton, row++, 1);
     infoLayout->addWidget(leftButton, row, 0);
     infoLayout->addWidget(rightButton, row++, 2);
     infoLayout->addWidget(downButton, row++, 1);
-
+    
     infoLayout->addWidget(new QLabel("Last Update:"), row, 0);
     imageLastUpdateLabel = new QLabel("-", infoPanel);
     infoLayout->addWidget(imageLastUpdateLabel, row++, 1);
@@ -694,7 +845,7 @@ QWidget* TelescopeGUI::createImageTab() {
     // Add vertical space at the bottom
     infoLayout->setRowStretch(row, 1);
     
-    // Right panel - image preview
+    // Right panel - Image preview
     QWidget *imagePanel = new QWidget(splitter);
     QVBoxLayout *imageLayout = new QVBoxLayout(imagePanel);
     
@@ -703,6 +854,7 @@ QWidget* TelescopeGUI::createImageTab() {
     imagePreviewLabel->setAlignment(Qt::AlignCenter);
     imagePreviewLabel->setScaledContents(false);
     imagePreviewLabel->setText("No image available");
+    imagePreviewLabel->setStyleSheet("QLabel { background-color: #2b2b2b; border: 2px solid #555; }");
     
     imageLayout->addWidget(imagePreviewLabel);
     
@@ -711,6 +863,166 @@ QWidget* TelescopeGUI::createImageTab() {
     splitter->setStretchFactor(1, 3);  // Image panel
     
     return tab;
+}
+
+// ============================================================================
+// ADD THESE METHODS TO TelescopeGUI.cpp
+// ============================================================================
+
+void TelescopeGUI::setupCameraController() {
+    // Initialize camera controller
+    if (!originBackend) {
+        qWarning() << "Backend not available for camera controller";
+        return;
+    }
+    
+    QString telescopeIP = connectedIpAddress;  // Use your existing connection IP
+    m_cameraController = new OriginCameraController(originBackend, telescopeIP, this);
+    
+    // Set default snapshot save location
+    m_snapshotSavePath = QDir::homePath() + "/TelescopeSnapshots";
+    QDir().mkpath(m_snapshotSavePath);
+    
+    qDebug() << "Snapshot save path:" << m_snapshotSavePath;
+    
+    // Connect camera controller signals
+    connect(m_cameraController, &OriginCameraController::modeChanged,
+            this, &TelescopeGUI::onCameraModeChanged);
+    
+    connect(m_cameraController, &OriginCameraController::captureParametersChanged,
+            this, &TelescopeGUI::onCaptureParametersChanged);
+    
+    connect(m_cameraController, &OriginCameraController::snapshotReady,
+            this, &TelescopeGUI::onSnapshotReady);
+    
+    connect(m_cameraController, &OriginCameraController::snapshotDownloaded,
+            this, &TelescopeGUI::onSnapshotDownloaded);
+    
+    connect(m_cameraController, &OriginCameraController::downloadProgress,
+            this, &TelescopeGUI::onSnapshotDownloadProgress);
+    
+    connect(m_cameraController, &OriginCameraController::errorOccurred,
+            this, [this](const QString& error) {
+                qWarning() << "Camera controller error:" << error;
+                QMessageBox::warning(this, "Camera Error", error);
+                
+                // Re-enable snapshot button on error
+                if (snapshotButton) {
+                    snapshotButton->setEnabled(true);
+                    snapshotButton->setText("Take Snapshot");
+                }
+            });
+    
+    // Get initial camera settings
+    QTimer::singleShot(1000, this, [this]() {
+        if (m_cameraController) {
+            m_cameraController->getCameraMode();
+            m_cameraController->getCaptureParameters();
+        }
+    });
+}
+
+// Signal Handlers
+void TelescopeGUI::onCameraModeChanged(bool isManual) {
+    qDebug() << "Camera mode changed:" << (isManual ? "Manual" : "Auto");
+    
+    // Update UI to reflect mode
+    if (exposureSpinBox && isoSpinBox) {
+        exposureSpinBox->setEnabled(isManual);
+        isoSpinBox->setEnabled(isManual);
+    }
+}
+
+void TelescopeGUI::onCaptureParametersChanged(double exposure, int iso) {
+    qDebug() << "Capture parameters updated: Exposure =" << exposure << "ISO =" << iso;
+    
+    // Update spin boxes without triggering their signals
+    if (exposureSpinBox) {
+        exposureSpinBox->blockSignals(true);
+        exposureSpinBox->setValue(exposure);
+        exposureSpinBox->blockSignals(false);
+    }
+    
+    if (isoSpinBox) {
+        isoSpinBox->blockSignals(true);
+        isoSpinBox->setValue(iso);
+        isoSpinBox->blockSignals(false);
+    }
+}
+
+void TelescopeGUI::onSnapshotReady(const QString& fileLocation, double ra, double dec) {
+    qDebug() << "Snapshot ready at" << fileLocation;
+    qDebug() << "Position: RA =" << ra << "Dec =" << dec;
+    
+    // Update image info labels
+    if (imageFileLabel) {
+        imageFileLabel->setText(fileLocation);
+    }
+    if (imageRaLabel) {
+        imageRaLabel->setText(QString::number(ra, 'f', 6));
+    }
+    if (imageDecLabel) {
+        imageDecLabel->setText(QString::number(dec, 'f', 6));
+    }
+    
+    // Generate save path with timestamp
+    QString filename = QFileInfo(fileLocation).fileName();
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString extension = QFileInfo(filename).suffix();
+    QString basename = QFileInfo(filename).baseName();
+    QString savePath = m_snapshotSavePath + "/" + basename + "_" + timestamp + "." + extension;
+    
+    // Start download
+    if (m_cameraController) {
+        m_cameraController->downloadSnapshot(fileLocation, savePath);
+    }
+    
+    // Show progress bar
+    if (snapshotProgressBar) {
+        snapshotProgressBar->setVisible(true);
+        snapshotProgressBar->setValue(0);
+        snapshotProgressBar->setFormat("Downloading snapshot... %p%");
+    }
+}
+
+void TelescopeGUI::onSnapshotDownloaded(const QString& localPath) {
+    qDebug() << "Snapshot downloaded to:" << localPath;
+    
+    // Hide progress bar
+    if (snapshotProgressBar) {
+        snapshotProgressBar->setVisible(false);
+    }
+    
+    // Re-enable snapshot button
+    if (snapshotButton) {
+        snapshotButton->setEnabled(true);
+        snapshotButton->setText("Take Snapshot");
+    }
+    
+    // Load and display the downloaded image
+    QPixmap pixmap(localPath);
+    if (!pixmap.isNull() && imagePreviewLabel) {
+        // Scale to fit while preserving aspect ratio
+        QPixmap scaledPixmap = pixmap.scaled(imagePreviewLabel->size(), 
+                                            Qt::KeepAspectRatio, 
+                                            Qt::SmoothTransformation);
+        imagePreviewLabel->setPixmap(scaledPixmap);
+        
+        qDebug() << "Image displayed successfully";
+    } else {
+        qWarning() << "Failed to load downloaded image";
+    }
+    
+    // Optional: Show notification
+    // QMessageBox::information(this, "Snapshot Saved", 
+    //                         "Snapshot saved to:\n" + localPath);
+}
+
+void TelescopeGUI::onSnapshotDownloadProgress(qint64 bytesReceived, qint64 bytesTotal) {
+    if (snapshotProgressBar && bytesTotal > 0) {
+        int percent = (bytesReceived * 100) / bytesTotal;
+        snapshotProgressBar->setValue(percent);
+    }
 }
 
 QWidget* TelescopeGUI::createDiskTab() {
