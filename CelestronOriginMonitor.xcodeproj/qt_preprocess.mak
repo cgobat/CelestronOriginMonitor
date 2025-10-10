@@ -37,8 +37,8 @@ benchmark: first
 
 compilers: build/moc/moc_predefs.h build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_CommandInterface.cpp build/moc/moc_TelescopeGUI.cpp\
 	 build/moc/moc_CometObserver.cpp build/moc/moc_CometTracker.cpp build/moc/moc_CommandInterface.cpp\
-	 build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_OriginCameraController.cpp\
-	 build/moc/moc_OriginBackend.cpp build/moc/moc_AlpacaServer.cpp build/moc/moc_AutoDownloader.cpp
+	 build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_OriginBackend.cpp\
+	 build/moc/moc_AlpacaServer.cpp build/moc/moc_AutoDownloader.cpp
 compiler_rcc_make_all:
 compiler_rcc_clean:
 compiler_moc_predefs_make_all: build/moc/moc_predefs.h
@@ -47,9 +47,9 @@ compiler_moc_predefs_clean:
 build/moc/moc_predefs.h: /opt/homebrew/share/qt/mkspecs/features/data/dummy.cpp
 	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++ -pipe -stdlib=libc++ -Werror=return-type -O2 -std=gnu++1z -Wall -Wextra -dM -E -o build/moc/moc_predefs.h /opt/homebrew/share/qt/mkspecs/features/data/dummy.cpp
 
-compiler_moc_header_make_all: build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_CommandInterface.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_CometObserver.cpp build/moc/moc_CometTracker.cpp build/moc/moc_CommandInterface.cpp build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_OriginCameraController.cpp build/moc/moc_OriginBackend.cpp build/moc/moc_AlpacaServer.cpp build/moc/moc_AutoDownloader.cpp
+compiler_moc_header_make_all: build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_CommandInterface.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_CometObserver.cpp build/moc/moc_CometTracker.cpp build/moc/moc_CommandInterface.cpp build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_OriginBackend.cpp build/moc/moc_AlpacaServer.cpp build/moc/moc_AutoDownloader.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_CommandInterface.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_CometObserver.cpp build/moc/moc_CometTracker.cpp build/moc/moc_CommandInterface.cpp build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_OriginCameraController.cpp build/moc/moc_OriginBackend.cpp build/moc/moc_AlpacaServer.cpp build/moc/moc_AutoDownloader.cpp
+	-$(DEL_FILE) build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_CommandInterface.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_CometObserver.cpp build/moc/moc_CometTracker.cpp build/moc/moc_CommandInterface.cpp build/moc/moc_TelescopeDataProcessor.cpp build/moc/moc_TelescopeGUI.cpp build/moc/moc_OriginBackend.cpp build/moc/moc_AlpacaServer.cpp build/moc/moc_AutoDownloader.cpp
 build/moc/moc_TelescopeDataProcessor.cpp: TelescopeDataProcessor.hpp \
 		/opt/homebrew/lib/QtCore.framework/Headers/QObject \
 		/opt/homebrew/lib/QtCore.framework/Headers/QJsonObject \
@@ -131,7 +131,6 @@ build/moc/moc_TelescopeGUI.cpp: TelescopeGUI.hpp \
 		/opt/homebrew/lib/QtCore.framework/Headers/QFile \
 		/opt/homebrew/lib/QtCore.framework/Headers/QStandardPaths \
 		/opt/homebrew/lib/QtCore.framework/Headers/QStringConverter \
-		OriginCameraController.hpp \
 		build/moc/moc_predefs.h \
 		/opt/homebrew/share/qt/libexec/moc
 	/opt/homebrew/share/qt/libexec/moc $(DEFINES) --include /Users/jonathan/OriginMonitor/build/moc/moc_predefs.h -I/opt/homebrew/Cellar/qt/6.9.2/share/qt/mkspecs/macx-clang -I/Users/jonathan/OriginMonitor -I/Users/jonathan/OriginMonitor -I/opt/homebrew/include -I/Users/jonathan/naif/cspice/include -I/path/to/cspice/include -I/opt/homebrew/lib/QtWidgets.framework/Headers -I/opt/homebrew/lib/QtGui.framework/Headers -I/opt/homebrew/lib/QtHttpServer.framework/Headers -I/opt/homebrew/lib/QtWebSockets.framework/Headers -I/opt/homebrew/lib/QtNetwork.framework/Headers -I/opt/homebrew/lib/QtCore.framework/Headers -I/Users/jonathan/.wasmedge/include -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include/c++/v1 -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -F/opt/homebrew/lib TelescopeGUI.hpp -o build/moc/moc_TelescopeGUI.cpp
@@ -255,36 +254,9 @@ build/moc/moc_TelescopeGUI.cpp: TelescopeGUI.hpp \
 		/opt/homebrew/lib/QtCore.framework/Headers/QFile \
 		/opt/homebrew/lib/QtCore.framework/Headers/QStandardPaths \
 		/opt/homebrew/lib/QtCore.framework/Headers/QStringConverter \
-		OriginCameraController.hpp \
 		build/moc/moc_predefs.h \
 		/opt/homebrew/share/qt/libexec/moc
 	/opt/homebrew/share/qt/libexec/moc $(DEFINES) --include /Users/jonathan/OriginMonitor/build/moc/moc_predefs.h -I/opt/homebrew/Cellar/qt/6.9.2/share/qt/mkspecs/macx-clang -I/Users/jonathan/OriginMonitor -I/Users/jonathan/OriginMonitor -I/opt/homebrew/include -I/Users/jonathan/naif/cspice/include -I/path/to/cspice/include -I/opt/homebrew/lib/QtWidgets.framework/Headers -I/opt/homebrew/lib/QtGui.framework/Headers -I/opt/homebrew/lib/QtHttpServer.framework/Headers -I/opt/homebrew/lib/QtWebSockets.framework/Headers -I/opt/homebrew/lib/QtNetwork.framework/Headers -I/opt/homebrew/lib/QtCore.framework/Headers -I/Users/jonathan/.wasmedge/include -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include/c++/v1 -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -F/opt/homebrew/lib TelescopeGUI.hpp -o build/moc/moc_TelescopeGUI.cpp
-
-build/moc/moc_OriginCameraController.cpp: OriginCameraController.hpp \
-		/opt/homebrew/lib/QtCore.framework/Headers/QObject \
-		/opt/homebrew/lib/QtCore.framework/Headers/QJsonObject \
-		/opt/homebrew/lib/QtNetwork.framework/Headers/QNetworkAccessManager \
-		/opt/homebrew/lib/QtNetwork.framework/Headers/QNetworkReply \
-		OriginBackend.hpp \
-		/opt/homebrew/lib/QtWebSockets.framework/Headers/QWebSocket \
-		/opt/homebrew/lib/QtCore.framework/Headers/QTimer \
-		/opt/homebrew/lib/QtCore.framework/Headers/QJsonDocument \
-		/opt/homebrew/lib/QtCore.framework/Headers/QJsonArray \
-		/opt/homebrew/lib/QtNetwork.framework/Headers/QNetworkRequest \
-		/opt/homebrew/lib/QtGui.framework/Headers/QImage \
-		/opt/homebrew/lib/QtCore.framework/Headers/QUuid \
-		/opt/homebrew/lib/QtCore.framework/Headers/QFile \
-		/opt/homebrew/lib/QtCore.framework/Headers/QTextStream \
-		/opt/homebrew/lib/QtCore.framework/Headers/QStandardPaths \
-		/opt/homebrew/lib/QtCore.framework/Headers/QDir \
-		/opt/homebrew/lib/QtCore.framework/Headers/QStringConverter \
-		TelescopeDataProcessor.hpp \
-		TelescopeData.hpp \
-		/opt/homebrew/lib/QtCore.framework/Headers/QString \
-		/opt/homebrew/lib/QtCore.framework/Headers/QDateTime \
-		build/moc/moc_predefs.h \
-		/opt/homebrew/share/qt/libexec/moc
-	/opt/homebrew/share/qt/libexec/moc $(DEFINES) --include /Users/jonathan/OriginMonitor/build/moc/moc_predefs.h -I/opt/homebrew/Cellar/qt/6.9.2/share/qt/mkspecs/macx-clang -I/Users/jonathan/OriginMonitor -I/Users/jonathan/OriginMonitor -I/opt/homebrew/include -I/Users/jonathan/naif/cspice/include -I/path/to/cspice/include -I/opt/homebrew/lib/QtWidgets.framework/Headers -I/opt/homebrew/lib/QtGui.framework/Headers -I/opt/homebrew/lib/QtHttpServer.framework/Headers -I/opt/homebrew/lib/QtWebSockets.framework/Headers -I/opt/homebrew/lib/QtNetwork.framework/Headers -I/opt/homebrew/lib/QtCore.framework/Headers -I/Users/jonathan/.wasmedge/include -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include/c++/v1 -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/17/include -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/include -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include -F/opt/homebrew/lib OriginCameraController.hpp -o build/moc/moc_OriginCameraController.cpp
 
 build/moc/moc_OriginBackend.cpp: OriginBackend.hpp \
 		/opt/homebrew/lib/QtCore.framework/Headers/QObject \

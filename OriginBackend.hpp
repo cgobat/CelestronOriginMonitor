@@ -88,17 +88,17 @@ public:
     bool setCaptureParameters(double exposure, int iso);
     bool getCameraInfo();
     // Camera mode control
-    void setCameraManualMode();
-    void setCameraAutoMode();
+    bool setCameraManualMode();
+    bool setCameraAutoMode();
      
     // Camera exposure/ISO control
-    void setCameraExposure(double seconds);
-    void setCameraISO(int iso);
+    bool setCameraExposure(double seconds);
+    bool setCameraISO(int iso);
     
     // Snapshot control
-    void takeSingleSnapshot();
-    
-    // Camera info
+    bool takeSingleSnapshot();
+    double radiansToHours(double radians);
+    double radiansToDegrees(double radians);
 
 signals:
     void connected();
@@ -112,12 +112,12 @@ signals:
     void snapshotRequested();  // Emitted when snapshot command sent
     void tiffImageDownloaded(const QString& filePath, const QByteArray& imageData,
                             double ra, double dec, double exposure);
-
+    void liveImageDownloaded(const QByteArray& imageData, 
+                            double ra, double dec, double exposure);
 private slots:
     void onWebSocketConnected();
     void onWebSocketDisconnected();
     void onTextMessageReceived(const QString &message);
-    void onImageDownloaded();
     void updateStatus();
 
 private:
@@ -125,11 +125,11 @@ private:
     TelescopeDataProcessor *m_dataProcessor;
     QNetworkAccessManager *m_networkManager;
     QTimer *m_statusTimer;
-    
+    QTimer *m_pingTimer;  // ADD THIS - for WebSocket keep-alive
+  
     // State variables
     QString m_connectedHost;
     int m_connectedPort;
-    bool m_isConnected;
     bool m_isExposing;
     bool m_imageReady;
     QImage m_lastImage;
@@ -152,8 +152,6 @@ private:
                              const QJsonObject& params = QJsonObject());
     void updateStatusFromProcessor();
     void requestImage(const QString& filePath);
-    double radiansToHours(double radians);
-    double radiansToDegrees(double radians);
     double hoursToRadians(double hours);
     double degreesToRadians(double degrees);
     // Camera state tracking
@@ -167,5 +165,5 @@ private:
     double m_lastImageDec;
     double m_lastImageExposure;
     QString m_lastImageFilePath;
-
+    int m_statusRotation;
 };

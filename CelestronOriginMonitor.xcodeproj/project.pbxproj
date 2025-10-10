@@ -121,21 +121,6 @@
 					);
 			};
 		};
-		CBBEA741A7A4E1EDB888DB3F = {
-			isa = PBXFileReference;
-			path = "/Users/jonathan/OriginMonitor/OriginCameraController.cpp";
-			name = "OriginCameraController.cpp";
-			sourceTree = "<absolute>";
-			lastKnownFileType = "sourcecode.cpp.cpp";
-		};
-		3D31FFF64A169D21056E3A58 = {
-			fileRef = "CBBEA741A7A4E1EDB888DB3F";
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					);
-			};
-		};
 		CE4D4DC88478CE7E1DF4FD8B = {
 			isa = PBXFileReference;
 			path = "/Users/jonathan/OriginMonitor/OriginBackend.cpp";
@@ -271,21 +256,6 @@
 					);
 			};
 		};
-		963A6C0E4FCCB50B145CE182 = {
-			isa = PBXFileReference;
-			path = "/Users/jonathan/OriginMonitor/build/moc/moc_OriginCameraController.cpp";
-			name = "moc_OriginCameraController.cpp";
-			sourceTree = "<absolute>";
-			lastKnownFileType = "sourcecode.cpp.cpp";
-		};
-		A8FA2E13BF9706C2922FFEE2 = {
-			fileRef = "963A6C0E4FCCB50B145CE182";
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-					);
-			};
-		};
 		151E271A992F683D870E20F5 = {
 			isa = PBXFileReference;
 			path = "/Users/jonathan/OriginMonitor/build/moc/moc_OriginBackend.cpp";
@@ -387,13 +357,6 @@
 			sourceTree = "<absolute>";
 			lastKnownFileType = "sourcecode.c.h";
 		};
-		59714B5E7B781B6096B1AA97 = {
-			isa = PBXFileReference;
-			path = "/Users/jonathan/OriginMonitor/OriginCameraController.hpp";
-			name = "OriginCameraController.hpp";
-			sourceTree = "<absolute>";
-			lastKnownFileType = "sourcecode.c.h";
-		};
 		F8AB0E36DC5A61EEA2A0F7CB = {
 			isa = PBXFileReference;
 			path = "/Users/jonathan/OriginMonitor/OriginBackend.hpp";
@@ -472,7 +435,6 @@
 				"608A9CA5FE47F12E1F418EB6",
 				"0CF807195C08902C21FD2513",
 				"6AFEAA73F74419929EA56C5E",
-				"963A6C0E4FCCB50B145CE182",
 				"151E271A992F683D870E20F5",
 				"292CC91CFF338C0F01855713",
 				"1209BCDF2549B259079D55D0");
@@ -489,7 +451,6 @@
 				"130C89623C0D9A3F0CA941D4",
 				"5B633FBFFB142CDC2E5AA176",
 				"937901ECD3CABA204E7A7FCC",
-				"CBBEA741A7A4E1EDB888DB3F",
 				"CE4D4DC88478CE7E1DF4FD8B",
 				"9F2611DF561BC47DA8A9AA26",
 				"941B2367B666E8397CCC5F89",
@@ -501,7 +462,6 @@
 				"8928C3DD5F1877C17CCB9DDD",
 				"CBF1B577B1F6BAF72E52BB49",
 				"B66532A4F0C79E2541D15A2D",
-				"59714B5E7B781B6096B1AA97",
 				"F8AB0E36DC5A61EEA2A0F7CB",
 				"461538073FEE7ADE4D23D131",
 				"7D5AC252AFF99DD354E76CAF");
@@ -541,7 +501,6 @@
 				"CommandInterface.hpp",
 				"TelescopeDataProcessor.hpp",
 				"TelescopeGUI.hpp",
-				"OriginCameraController.hpp",
 				"OriginBackend.hpp",
 				"AlpacaServer.hpp",
 				"AutoDownloader.hpp");
@@ -552,7 +511,6 @@
 				"build/moc/moc_TelescopeGUI.cpp",
 				"build/moc/moc_CometObserver.cpp",
 				"build/moc/moc_CometTracker.cpp",
-				"build/moc/moc_OriginCameraController.cpp",
 				"build/moc/moc_OriginBackend.cpp",
 				"build/moc/moc_AlpacaServer.cpp",
 				"build/moc/moc_AutoDownloader.cpp");
@@ -571,7 +529,6 @@
 				"79FDBCD823610F6F3B4B212F",
 				"485192929DFBC0E1853FBC04",
 				"4A247C79A91097E57BDEF6B7",
-				"3D31FFF64A169D21056E3A58",
 				"0AEAED0949E0473E61749D33",
 				"50FAB4451FB04CC1E828B8B7",
 				"A60476755F8194B152E302F9",
@@ -581,7 +538,6 @@
 				"9352F1449D6822A7CF109107",
 				"5DEEBF0ACE12C6D0F452B189",
 				"7BF868CC026D1AD5444F90E3",
-				"A8FA2E13BF9706C2922FFEE2",
 				"0821A1E436DB45C7AF2ED093",
 				"F5328B181A3F30EFCBC1950D",
 				"BFE8A06FDE2309207BFC9582",

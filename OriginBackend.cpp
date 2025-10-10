@@ -10,22 +10,31 @@
 
 OriginBackend::OriginBackend(QObject *parent)
     : QObject(parent)
+    , m_cameraManualMode(false)
+    , m_currentExposure(0.1)
+    , m_currentISO(200)
+    , m_snapshotInProgress(false)
+    , m_lastImageRa(0)
+    , m_lastImageDec(0)
+    , m_lastImageExposure(0)
     , m_webSocket(nullptr)
     , m_dataProcessor(nullptr)
     , m_networkManager(nullptr)
     , m_statusTimer(nullptr)
+    , m_pingTimer(nullptr)
     , m_connectedPort(80)
-    , m_isConnected(false)
     , m_isExposing(false)
     , m_imageReady(false)
     , m_nextSequenceId(2000)
     , m_logFile(nullptr)  // ADD THIS
     , m_logStream(nullptr)  // ADD THIS
+    , m_statusRotation(0)  // ADD THIS
 {
     m_webSocket = new QWebSocket("", QWebSocketProtocol::VersionLatest, this);
     m_dataProcessor = new TelescopeDataProcessor(this);
     m_networkManager = new QNetworkAccessManager(this);
     m_statusTimer = new QTimer(this);
+    m_pingTimer = new QTimer(this);
 
     // Initialize logging - ADD THIS
     initializeLogging();
@@ -35,6 +44,19 @@ OriginBackend::OriginBackend(QObject *parent)
     connect(m_webSocket, &QWebSocket::disconnected, this, &OriginBackend::onWebSocketDisconnected);
     connect(m_webSocket, &QWebSocket::textMessageReceived, this, &OriginBackend::onTextMessageReceived);
 
+    // ADD THESE - WebSocket ping/pong handling:
+    connect(m_webSocket, &QWebSocket::pong, this, [this](quint64 elapsedTime, const QByteArray &payload) {
+        qDebug() << "Pong received, RTT:" << elapsedTime << "ms";
+        logWebSocketMessage("PONG", QString("RTT: %1ms").arg(elapsedTime));
+    });
+    
+    connect(m_webSocket, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error),
+            this, [this](QAbstractSocket::SocketError error) {
+        qWarning() << "WebSocket error:" << error << m_webSocket->errorString();
+        logWebSocketMessage("ERROR", QString("Code: %1, Message: %2")
+                           .arg(error).arg(m_webSocket->errorString()));
+    });
+
     // Connect data processor signals
     connect(m_dataProcessor, &TelescopeDataProcessor::mountStatusUpdated, 
             this, &OriginBackend::updateStatus);
@@ -42,8 +64,20 @@ OriginBackend::OriginBackend(QObject *parent)
             this, &OriginBackend::imageReady);
 
     // Setup status update timer
-    m_statusTimer->setInterval(2000); // Update every 2 seconds
+    m_statusTimer->setInterval(5000); // Update every 5 seconds
     connect(m_statusTimer, &QTimer::timeout, this, &OriginBackend::updateStatus);
+
+    // ADD THIS - Setup ping timer (keep-alive)
+    m_pingTimer->setInterval(15000); // Ping every 10 seconds
+    connect(m_pingTimer, &QTimer::timeout, this, [this]() {
+        if (m_webSocket && m_webSocket->isValid() && 
+            m_webSocket->state() == QAbstractSocket::ConnectedState) {
+            qDebug() << "Sending WebSocket ping...";
+            m_webSocket->ping();
+            logWebSocketMessage("PING", "Keep-alive ping sent");
+        }
+    });
+
 }
 
 OriginBackend::~OriginBackend()
@@ -54,7 +88,7 @@ OriginBackend::~OriginBackend()
 
 bool OriginBackend::connectToTelescope(const QString& host, int port)
 {
-    if (m_isConnected) {
+    if (isConnected()) {
         qDebug() << "Already connected to telescope";
         return true;
     }
@@ -81,7 +115,7 @@ bool OriginBackend::connectToTelescope(const QString& host, int port)
     timeoutTimer.start();
     loop.exec();
     
-    return m_isConnected;
+    return isConnected();
 }
 
 void OriginBackend::disconnectFromTelescope()
@@ -94,20 +128,25 @@ void OriginBackend::disconnectFromTelescope()
         m_statusTimer->stop();
     }
     
-    m_isConnected = false;
+    // ADD THIS
+    if (m_pingTimer && m_pingTimer->isActive()) {
+        m_pingTimer->stop();
+    }
+
     m_status.isConnected = false;
+    qDebug() << "disconnected";
     
     emit disconnected();
 }
 
 bool OriginBackend::isConnected() const
 {
-    return m_isConnected;
+    return (m_webSocket->isValid() && m_webSocket->state() == QAbstractSocket::ConnectedState);
 }
 
 bool OriginBackend::gotoPosition(double ra, double dec)
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         qWarning() << "Cannot goto position - not connected";
         return false;
     }
@@ -130,7 +169,7 @@ bool OriginBackend::gotoPosition(double ra, double dec)
 
 bool OriginBackend::syncPosition(double ra, double dec)
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         qWarning() << "Cannot sync position - not connected";
         return false;
     }
@@ -148,19 +187,27 @@ bool OriginBackend::syncPosition(double ra, double dec)
     return true;
 }
 
+// Snapshot Control
+bool OriginBackend::takeSingleSnapshot()
+{
+    return takeSnapshot(m_currentExposure, m_currentISO);
+}
+
 bool OriginBackend::takeSnapshot(double exposure, int iso)
 {
-    if (!m_isConnected) {
+    qDebug() << "Taking snapshot: Exposure =" << exposure << "ISO =" << iso;
+    if (!isConnected()) {
+      qDebug() << "ignored due to closed socket";
         return false;
     }
 
+    m_snapshotInProgress = true;
     // RunSampleCapture command triggers a single snapshot
     QJsonObject params;
     params["ExposureTime"] = exposure;
     params["ISO"] = iso;
     
     sendCommand("RunSampleCapture", "TaskController", params);
-    qDebug() << "Taking snapshot: Exposure =" << exposure << "ISO =" << iso;
     return true;
 }
 
@@ -168,9 +215,9 @@ bool OriginBackend::takeSnapshot(double exposure, int iso)
 // MODE CONTROL
 // ============================================================================
 
-bool OriginBackend::setManualMode()
+bool OriginBackend::setCameraManualMode()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -180,9 +227,9 @@ bool OriginBackend::setManualMode()
     return true;
 }
 
-bool OriginBackend::setAutoMode()
+bool OriginBackend::setCameraAutoMode()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -194,7 +241,7 @@ bool OriginBackend::setAutoMode()
 
 bool OriginBackend::getCameraMode()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -205,7 +252,7 @@ bool OriginBackend::getCameraMode()
 
 bool OriginBackend::getCaptureParameters()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -216,7 +263,7 @@ bool OriginBackend::getCaptureParameters()
 
 bool OriginBackend::setCaptureParameters(double exposure, int iso)
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
     
@@ -233,7 +280,7 @@ bool OriginBackend::setCaptureParameters(double exposure, int iso)
 
 bool OriginBackend::getCameraInfo()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -244,7 +291,7 @@ bool OriginBackend::getCameraInfo()
 
 bool OriginBackend::abortMotion()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -258,7 +305,7 @@ bool OriginBackend::abortMotion()
 
 bool OriginBackend::parkMount()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -272,7 +319,7 @@ bool OriginBackend::parkMount()
 
 bool OriginBackend::unparkMount()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -286,7 +333,7 @@ bool OriginBackend::unparkMount()
 
 bool OriginBackend::initializeTelescope()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -310,7 +357,7 @@ bool OriginBackend::initializeTelescope()
 
 bool OriginBackend::moveDirection(int direction, int speed)
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -353,7 +400,7 @@ bool OriginBackend::moveDirection(int direction, int speed)
 
 bool OriginBackend::setTracking(bool enabled)
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -407,7 +454,7 @@ void OriginBackend::setImageReady(bool ready)
 
 bool OriginBackend::abortExposure()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return false;
     }
 
@@ -418,9 +465,20 @@ bool OriginBackend::abortExposure()
     return true;
 }
 
+// Exposure and ISO Control
+bool OriginBackend::setCameraExposure(double seconds)
+{
+    return setCaptureParameters(seconds, m_currentISO);
+}
+
+bool OriginBackend::setCameraISO(int iso)
+{
+    return setCaptureParameters(m_currentExposure, iso);
+}
+
 QImage OriginBackend::singleShot(int gain, int binning, int exposureTimeMicroseconds)
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         qWarning() << "Cannot take image - not connected";
         return QImage();
     }
@@ -483,14 +541,17 @@ void OriginBackend::onWebSocketConnected()
     // LOG CONNECTION EVENT - ADD THIS
     logWebSocketMessage("SYSTEM", QString("Connected to %1:%2").arg(m_connectedHost).arg(m_connectedPort));
     
-    m_isConnected = true;
     m_status.isConnected = true;
+    qDebug() << "connected";
     
     // Start status updates
     m_statusTimer->start();
-    
+
+    // ADD THIS - Start keep-alive pings
+    m_pingTimer->start();
+
     // Request initial status
-    sendCommand("GetStatus", "System");
+    sendCommand("GetStatus", "Mount");
     
     emit connected();
 }
@@ -502,82 +563,129 @@ void OriginBackend::onWebSocketDisconnected()
     // LOG DISCONNECTION EVENT - ADD THIS
     logWebSocketMessage("SYSTEM", "Disconnected from telescope");
     
-    m_isConnected = false;
     m_status.isConnected = false;
+    qDebug() << "disconnected";
     
     if (m_statusTimer->isActive()) {
         m_statusTimer->stop();
+    }
+    if (m_pingTimer->isActive()) {
+        m_pingTimer->stop();
     }
     
     emit disconnected();
 }
 
-// Modify the onTextMessageReceived method in OriginBackend.cpp:
 void OriginBackend::onTextMessageReceived(const QString &message)
 {
-    // LOG THE INCOMING MESSAGE - ADD THIS
     logWebSocketMessage("RECV", message);
     
-    // Process the message through the data processor
-    bool processed = m_dataProcessor->processJsonPacket(message.toUtf8());
+    QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
+    if (!doc.isObject()) {
+        return;
+    }
     
+    QJsonObject obj = doc.object();
+    
+    // Still emit for other listeners
+//    emit messageReceived(obj);
+    
+    // Process through data processor
+    bool processed = m_dataProcessor->processJsonPacket(message.toUtf8());
     if (processed) {
         updateStatusFromProcessor();
     }
-
-    // Check for image ready notifications
-    QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8());
-    if (doc.isObject()) {
-        QJsonObject obj = doc.object();
+    
+    QString command = obj["Command"].toString();
+    QString type = obj["Type"].toString();
+    QString source = obj["Source"].toString();
+    
+    // Handle camera-specific responses
+    if (type == "Response") {
+        int errorCode = obj["ErrorCode"].toInt();
         
-        if (obj["Source"].toString() == "ImageServer" && 
-            obj["Command"].toString() == "NewImageReady" &&
-            obj["Type"].toString() == "Notification") {
+        if (errorCode != 0) {
+            QString errorMsg = obj["ErrorMessage"].toString();
+            qWarning() << "Command error:" << errorCode << errorMsg;
+            return;
+        }
+        
+        // Process camera responses
+        if (command == "GetCaptureParameters") {
+            m_currentExposure = obj["Exposure"].toDouble();
+            m_currentISO = obj["ISO"].toInt();
             
-            QString filePath = obj["FileLocation"].toString();
-            if (!filePath.isEmpty()) {
-                requestImage(filePath);
+	    // qDebug() << "Capture parameters: Exposure =" << m_currentExposure << "ISO =" << m_currentISO;
+            
+            emit captureParametersChanged(m_currentExposure, m_currentISO);
+        }
+        else if (command == "GetEnableManual" || 
+                 command == "SetEnableManual" || 
+                 command == "SetEnableAuto") {
+            if (obj.contains("IsManual")) {
+                m_cameraManualMode = obj["IsManual"].toBool();
+                qDebug() << "Camera mode:" << (m_cameraManualMode ? "Manual" : "Auto");
+                emit cameraModeChanged(m_cameraManualMode);
             }
         }
-    }
-}
-
-void OriginBackend::onImageDownloaded()
-{
-    QNetworkReply *reply = qobject_cast<QNetworkReply*>(sender());
-    if (!reply) return;
-
-    if (reply->error() == QNetworkReply::NoError) {
-        QByteArray imageData = reply->readAll();
-        
-        // Try to load as an image
-        QImage image;
-        if (image.loadFromData(imageData)) {
-            m_lastImage = image;
-            m_imageReady = true;
-            
-            qDebug() << "Image downloaded successfully, size:" << imageData.size() << "bytes";
-            emit imageReady();
-        } else {
-            qWarning() << "Failed to load image from downloaded data";
+        else if (command == "GetCameraInfo") {
+            QString cameraID = obj["CameraID"].toString();
+            QString model = obj["CameraModel"].toString();
+            qDebug() << "Camera info: ID =" << cameraID << "Model =" << model;
+            emit cameraInfoReceived(cameraID, model);
         }
-    } else {
-        qWarning() << "Error downloading image:" << reply->errorString();
     }
 
-    reply->deleteLater();
+    // Handle image notifications
+    if (source == "ImageServer" && 
+        command == "NewImageReady" &&
+        type == "Notification") {
+        
+        QString filePath = obj["FileLocation"].toString();
+        
+        if (!filePath.isEmpty()) {
+            // Store metadata
+            m_lastImageRa = obj["Ra"].toDouble();
+            m_lastImageDec = obj["Dec"].toDouble();
+            m_lastImageExposure = obj["ExposureTime"].toDouble();
+            m_lastImageFilePath = filePath;
+            
+            // Determine type by extension
+            bool isTiff = filePath.endsWith(".tiff", Qt::CaseInsensitive) || 
+                         filePath.endsWith(".tif", Qt::CaseInsensitive);
+            
+	    // qDebug() << "Image ready:" << filePath << (isTiff ? "(TIFF snapshot)" : "(JPEG live stream)");
+
+	    // ADD THIS CHECK - Skip live JPEGs during snapshot capture
+	    if (!isTiff && m_snapshotInProgress) {
+	      qDebug() << "Skipping live JPEG - snapshot in progress";
+	      return;  // Don't download live images during snapshot
+	    }
+
+            // Download the image
+            requestImage(filePath);
+        }
+    }
 }
 
 void OriginBackend::updateStatus()
 {
-    if (!m_isConnected) {
+    if (!isConnected()) {
         return;
     }
-
-    // Request status updates from various components
-    sendCommand("GetStatus", "Mount");
-    sendCommand("GetStatus", "Environment");
-    sendCommand("GetCaptureParameters", "Camera");
+    switch (m_statusRotation % 3) {
+        case 0:
+            sendCommand("GetStatus", "Mount");
+            break;
+        case 1:
+            sendCommand("GetStatus", "Environment");
+            break;
+        case 2:
+            sendCommand("GetCaptureParameters", "Camera");
+            break;
+    }
+    
+    m_statusRotation++;
 }
 
 QJsonObject OriginBackend::createCommand(const QString& command, const QString& destination, const QJsonObject& params)
@@ -605,7 +713,7 @@ void OriginBackend::sendCommand(const QString& command, const QString& destinati
     QJsonDocument doc(jsonCommand);
     QString message = doc.toJson(QJsonDocument::Compact);  // Use Compact for cleaner logs
     
-    if (m_webSocket->isValid() && m_webSocket->state() == QAbstractSocket::ConnectedState) {
+    if (isConnected()) {
         // LOG THE OUTGOING MESSAGE - ADD THIS
         logWebSocketMessage("SEND", message);
         
@@ -615,7 +723,7 @@ void OriginBackend::sendCommand(const QString& command, const QString& destinati
         int sequenceId = jsonCommand["SequenceID"].toInt();
         m_pendingCommands[sequenceId] = command;
         
-        qDebug() << "Sent command:" << command << "to" << destination;
+        // qDebug() << "Sent command:" << command << "to" << destination;
     } else {
         qWarning() << "Cannot send command - WebSocket not connected";
     }
@@ -654,27 +762,71 @@ void OriginBackend::updateStatusFromProcessor()
     emit statusUpdated();
 }
 
-void OriginBackend::requestImage(const QString& filePath)
-{
-    if (m_connectedHost.isEmpty()) {
-        return;
-    }
-
-    // Construct the URL for image download
-    QString fullPath = QString("http://%1/SmartScope-1.0/dev2/%2").arg(m_connectedHost, filePath);
+void OriginBackend::requestImage(const QString &filePath) {
+    if (m_connectedHost.isEmpty()) return;
+    
+    QString fullPath = QString("http://%1/SmartScope-1.0/dev2/%2")
+                       .arg(m_connectedHost, filePath);
     QUrl url(fullPath);
     QNetworkRequest request(url);
     
-    // Set appropriate headers
     request.setRawHeader("Cache-Control", "no-cache");
     request.setRawHeader("Accept", "*/*");
-    request.setRawHeader("User-Agent", "OriginAlpacaServer");
-    request.setRawHeader("Connection", "keep-alive");
     
-    qDebug() << "Requesting image from:" << fullPath;
+    bool isTiff = filePath.endsWith(".tiff", Qt::CaseInsensitive) || 
+                  filePath.endsWith(".tif", Qt::CaseInsensitive);
     
-    QNetworkReply *reply = m_networkManager->get(request);
-    connect(reply, &QNetworkReply::finished, this, &OriginBackend::onImageDownloaded);
+    // qDebug() << "Downloading:" << fullPath;
+    
+    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+    QNetworkReply *reply = manager->get(request);
+    
+    // Store metadata in reply
+    reply->setProperty("filePath", filePath);
+    reply->setProperty("isTiff", isTiff);
+    reply->setProperty("ra", m_lastImageRa);
+    reply->setProperty("dec", m_lastImageDec);
+    reply->setProperty("exposure", m_lastImageExposure);
+    
+    connect(reply, &QNetworkReply::finished, this, [this, reply, manager]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            QByteArray imageData = reply->readAll();
+            QString filePath = reply->property("filePath").toString();
+            bool isTiff = reply->property("isTiff").toBool();
+            double ra = reply->property("ra").toDouble();
+            double dec = reply->property("dec").toDouble();
+            double exposure = reply->property("exposure").toDouble();
+            
+            // qDebug() << "Downloaded:" << imageData.size() << "bytes" << (isTiff ? "(TIFF)" : "(JPEG)");
+            
+            if (isTiff) {
+                // Snapshot - emit special signal
+                m_snapshotInProgress = false;
+                qDebug() << "Snapshot complete - resuming live stream";
+                emit tiffImageDownloaded(filePath, imageData, ra, dec, exposure);
+            } else {
+                // Live stream - could emit different signal or handle directly
+                // For now, your existing code handles this
+		// Try to load as an image
+		QImage image;
+		if (image.loadFromData(imageData)) {
+		    m_lastImage = image;
+		    m_imageReady = true;
+
+		    qDebug() << "Image downloaded successfully, size:" << imageData.size() << "bytes";
+		    emit liveImageDownloaded(imageData, ra, dec, exposure);
+		} else {
+		    qWarning() << "Failed to load image from downloaded data";
+		}
+            }
+        } else {
+            qWarning() << "Download error:" << reply->errorString();
+            m_snapshotInProgress = false;
+        }
+        
+        reply->deleteLater();
+        manager->deleteLater();
+    });
 }
 
 double OriginBackend::radiansToHours(double radians)
@@ -733,7 +885,7 @@ void OriginBackend::logWebSocketMessage(const QString& direction, const QString&
     m_logStream->flush();
     
     // Also output to console for immediate viewing
-    qDebug() << "WS" << direction << ":" << message;
+    //    qDebug() << "WS" << direction << ":" << message;
 }
 
 // Add this method to OriginBackend.cpp:

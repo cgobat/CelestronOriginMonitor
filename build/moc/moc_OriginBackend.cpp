@@ -59,11 +59,11 @@ template <> constexpr inline auto OriginBackend::qt_create_metaobjectdata<qt_met
         "imageData",
         "ra",
         "dec",
+        "liveImageDownloaded",
         "onWebSocketConnected",
         "onWebSocketDisconnected",
         "onTextMessageReceived",
         "message",
-        "onImageDownloaded",
         "updateStatus"
     };
 
@@ -95,16 +95,18 @@ template <> constexpr inline auto OriginBackend::qt_create_metaobjectdata<qt_met
             { QMetaType::QString, 16 }, { QMetaType::QByteArray, 17 }, { QMetaType::Double, 18 }, { QMetaType::Double, 19 },
             { QMetaType::Double, 9 },
         }}),
-        // Slot 'onWebSocketConnected'
-        QtMocHelpers::SlotData<void()>(20, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onWebSocketDisconnected'
-        QtMocHelpers::SlotData<void()>(21, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onTextMessageReceived'
-        QtMocHelpers::SlotData<void(const QString &)>(22, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QString, 23 },
+        // Signal 'liveImageDownloaded'
+        QtMocHelpers::SignalData<void(const QByteArray &, double, double, double)>(20, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QByteArray, 17 }, { QMetaType::Double, 18 }, { QMetaType::Double, 19 }, { QMetaType::Double, 9 },
         }}),
-        // Slot 'onImageDownloaded'
-        QtMocHelpers::SlotData<void()>(24, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onWebSocketConnected'
+        QtMocHelpers::SlotData<void()>(21, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onWebSocketDisconnected'
+        QtMocHelpers::SlotData<void()>(22, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onTextMessageReceived'
+        QtMocHelpers::SlotData<void(const QString &)>(23, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QString, 24 },
+        }}),
         // Slot 'updateStatus'
         QtMocHelpers::SlotData<void()>(25, 2, QMC::AccessPrivate, QMetaType::Void),
     };
@@ -139,10 +141,10 @@ void OriginBackend::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
         case 6: _t->cameraInfoReceived((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2]))); break;
         case 7: _t->snapshotRequested(); break;
         case 8: _t->tiffImageDownloaded((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QByteArray>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[4])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[5]))); break;
-        case 9: _t->onWebSocketConnected(); break;
-        case 10: _t->onWebSocketDisconnected(); break;
-        case 11: _t->onTextMessageReceived((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
-        case 12: _t->onImageDownloaded(); break;
+        case 9: _t->liveImageDownloaded((*reinterpret_cast< std::add_pointer_t<QByteArray>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[4]))); break;
+        case 10: _t->onWebSocketConnected(); break;
+        case 11: _t->onWebSocketDisconnected(); break;
+        case 12: _t->onTextMessageReceived((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
         case 13: _t->updateStatus(); break;
         default: ;
         }
@@ -165,6 +167,8 @@ void OriginBackend::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
         if (QtMocHelpers::indexOfMethod<void (OriginBackend::*)()>(_a, &OriginBackend::snapshotRequested, 7))
             return;
         if (QtMocHelpers::indexOfMethod<void (OriginBackend::*)(const QString & , const QByteArray & , double , double , double )>(_a, &OriginBackend::tiffImageDownloaded, 8))
+            return;
+        if (QtMocHelpers::indexOfMethod<void (OriginBackend::*)(const QByteArray & , double , double , double )>(_a, &OriginBackend::liveImageDownloaded, 9))
             return;
     }
 }
@@ -252,5 +256,11 @@ void OriginBackend::snapshotRequested()
 void OriginBackend::tiffImageDownloaded(const QString & _t1, const QByteArray & _t2, double _t3, double _t4, double _t5)
 {
     QMetaObject::activate<void>(this, &staticMetaObject, 8, nullptr, _t1, _t2, _t3, _t4, _t5);
+}
+
+// SIGNAL 9
+void OriginBackend::liveImageDownloaded(const QByteArray & _t1, double _t2, double _t3, double _t4)
+{
+    QMetaObject::activate<void>(this, &staticMetaObject, 9, nullptr, _t1, _t2, _t3, _t4);
 }
 QT_WARNING_POP

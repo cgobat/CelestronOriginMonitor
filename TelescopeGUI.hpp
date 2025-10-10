@@ -37,7 +37,6 @@ class OriginBackend;
 #include "CommandInterface.hpp"
 #include "AutoDownloader.hpp"
 #include "CometTracker.hpp"
-#include "OriginCameraController.hpp"  // ADD THIS
 
 /**
  * @brief Main application window for the telescope monitor
@@ -51,12 +50,7 @@ public:
      * @param parent The parent widget
      */
     TelescopeGUI(QWidget *parent = nullptr);
-    
-    /**
-     * @brief Send a JSON message to the telescope
-     * @param obj The JSON object to send
-     */
-    void sendJsonMessage(const QJsonObject &obj);
+    OriginBackend* originBackend;
     
 private slots:
     void loadCometKernels();
@@ -213,7 +207,6 @@ private slots:
     void clearAlpacaLog();
     void saveAlpacaLog();
     // snaphot camera slots
-    void setupCameraController();
     void onCameraModeChanged(bool isManual);
     void onCaptureParametersChanged(double exposure, int iso);
     void onSnapshotReady(const QString& fileLocation, double ra, double dec);
@@ -239,11 +232,6 @@ private:
      * @brief Set up the UI elements
      */
     void setupUI();
-    
-    /**
-     * @brief Set up the WebSocket
-     */
-    void setupWebSocket();
     
     /**
      * @brief Set up the UDP discovery
@@ -290,7 +278,6 @@ private:
   
     // Class members
     TelescopeDataProcessor *dataProcessor;
-    QWebSocket *webSocket;
     QUdpSocket *udpSocket;
     
     // UI elements
@@ -362,7 +349,6 @@ private:
     QLabel *imageFovYLabel;
     QLabel *imageLastUpdateLabel;
     QLabel *imagePreviewLabel;
-    OriginCameraController* m_cameraController;
     QString m_snapshotSavePath;
     
     // Camera control UI widgets
@@ -425,7 +411,6 @@ private:
 
     // NEW: Alpaca server integration
     AlpacaServer* alpacaServer;
-    OriginBackend* originBackend;
     
     // Alpaca tab widgets
     QPushButton* alpacaStartButton;

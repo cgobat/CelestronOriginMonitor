@@ -16,18 +16,8 @@ void CommandInterface::sendCommand() {
     QString command = commandComboBox->currentText();
     QString destination = destinationComboBox->currentText();
     
-    // Create a sequential ID for the command
-    static int sequenceId = 1000;
-    sequenceId++;
-    
     // Create the JSON command
-    QJsonObject jsonCommand;
-    jsonCommand["Command"] = command;
-    jsonCommand["Destination"] = destination;
-    jsonCommand["SequenceID"] = sequenceId;
-    jsonCommand["Source"] = "QtApp";
-    jsonCommand["Type"] = "Command";
-    
+    QJsonObject jsonCommand;    
     // Add any parameters
     if (!parametersEdit->text().isEmpty()) {
         QJsonDocument paramsDoc = QJsonDocument::fromJson(parametersEdit->text().toUtf8());
@@ -45,7 +35,7 @@ void CommandInterface::sendCommand() {
     }
     
     // Send the command using the TelescopeGUI's method
-    telescopeGUI->sendJsonMessage(jsonCommand);
+    telescopeGUI->originBackend->sendCommand(command, destination, jsonCommand);
     
     // Add to command history - we'll assume it worked if we got here
     QListWidgetItem *item = new QListWidgetItem(QString("Sent: %1 to %2").arg(command, destination));

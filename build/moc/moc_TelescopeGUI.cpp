@@ -105,7 +105,6 @@ template <> constexpr inline auto TelescopeGUI::qt_create_metaobjectdata<qt_meta
         "path",
         "clearAlpacaLog",
         "saveAlpacaLog",
-        "setupCameraController",
         "onCameraModeChanged",
         "isManual",
         "onCaptureParametersChanged",
@@ -240,26 +239,24 @@ template <> constexpr inline auto TelescopeGUI::qt_create_metaobjectdata<qt_meta
         QtMocHelpers::SlotData<void()>(63, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'saveAlpacaLog'
         QtMocHelpers::SlotData<void()>(64, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'setupCameraController'
-        QtMocHelpers::SlotData<void()>(65, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onCameraModeChanged'
-        QtMocHelpers::SlotData<void(bool)>(66, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Bool, 67 },
+        QtMocHelpers::SlotData<void(bool)>(65, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Bool, 66 },
         }}),
         // Slot 'onCaptureParametersChanged'
-        QtMocHelpers::SlotData<void(double, int)>(68, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Double, 69 }, { QMetaType::Int, 70 },
+        QtMocHelpers::SlotData<void(double, int)>(67, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Double, 68 }, { QMetaType::Int, 69 },
         }}),
         // Slot 'onSnapshotReady'
-        QtMocHelpers::SlotData<void(const QString &, double, double)>(71, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QString, 72 }, { QMetaType::Double, 73 }, { QMetaType::Double, 74 },
+        QtMocHelpers::SlotData<void(const QString &, double, double)>(70, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QString, 71 }, { QMetaType::Double, 72 }, { QMetaType::Double, 73 },
         }}),
         // Slot 'onSnapshotDownloaded'
-        QtMocHelpers::SlotData<void(const QString &)>(75, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QString, 76 },
+        QtMocHelpers::SlotData<void(const QString &)>(74, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QString, 75 },
         }}),
         // Slot 'onSnapshotDownloadProgress'
-        QtMocHelpers::SlotData<void(qint64, qint64)>(77, 2, QMC::AccessPrivate, QMetaType::Void, {{
+        QtMocHelpers::SlotData<void(qint64, qint64)>(76, 2, QMC::AccessPrivate, QMetaType::Void, {{
             { QMetaType::LongLong, 39 }, { QMetaType::LongLong, 40 },
         }}),
     };
@@ -334,12 +331,11 @@ void TelescopeGUI::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id
         case 46: _t->onAlpacaRequestReceived((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2]))); break;
         case 47: _t->clearAlpacaLog(); break;
         case 48: _t->saveAlpacaLog(); break;
-        case 49: _t->setupCameraController(); break;
-        case 50: _t->onCameraModeChanged((*reinterpret_cast< std::add_pointer_t<bool>>(_a[1]))); break;
-        case 51: _t->onCaptureParametersChanged((*reinterpret_cast< std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
-        case 52: _t->onSnapshotReady((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3]))); break;
-        case 53: _t->onSnapshotDownloaded((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
-        case 54: _t->onSnapshotDownloadProgress((*reinterpret_cast< std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<qint64>>(_a[2]))); break;
+        case 49: _t->onCameraModeChanged((*reinterpret_cast< std::add_pointer_t<bool>>(_a[1]))); break;
+        case 50: _t->onCaptureParametersChanged((*reinterpret_cast< std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
+        case 51: _t->onSnapshotReady((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3]))); break;
+        case 52: _t->onSnapshotDownloaded((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
+        case 53: _t->onSnapshotDownloadProgress((*reinterpret_cast< std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<qint64>>(_a[2]))); break;
         default: ;
         }
     }
@@ -364,14 +360,14 @@ int TelescopeGUI::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 55)
+        if (_id < 54)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 55;
+        _id -= 54;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 55)
+        if (_id < 54)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 55;
+        _id -= 54;
     }
     return _id;
 }
