@@ -1818,6 +1818,8 @@ void TelescopeGUI::onAlpacaRequestReceived(const QString& method, const QString&
     // Auto-scroll to bottom
     alpacaLogTextEdit->verticalScrollBar()->setValue(
         alpacaLogTextEdit->verticalScrollBar()->maximum());
+
+    qDebug() << requestCount << method << path;
 }
 
 void TelescopeGUI::clearAlpacaLog()

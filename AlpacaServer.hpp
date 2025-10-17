@@ -106,7 +106,7 @@ private:
     QString m_location;
     int m_port;
     int m_instanceNumber;
-
+  
     // Utility methods
     QJsonObject createErrorResponse(int errorNumber, const QString& errorMessage);
     QJsonObject createSuccessResponse(const QJsonValue& value, const ClientTransaction& transaction);
@@ -123,7 +123,6 @@ private:
     
     // Common device endpoints
     QJsonObject handleDeviceAction(const QHttpServerRequest& request, const QString& action);
-    QJsonObject handleDeviceConnected(const QHttpServerRequest& request, bool command = false);
     QJsonObject handleDeviceDescription(const QHttpServerRequest& request);
     QJsonObject handleDeviceDriverInfo(const QHttpServerRequest& request);
     QJsonObject handleDeviceDriverVersion(const QHttpServerRequest& request);
@@ -132,6 +131,7 @@ private:
     QJsonObject handleDeviceSupportedActions(const QHttpServerRequest& request);
     
     // Telescope-specific endpoints
+    QJsonObject handleTelescopeConnected(const QHttpServerRequest& request, bool command = false);
     QJsonObject handleTelescopeAlignmentMode(const QHttpServerRequest& request);
     QJsonObject handleTelescopeAltitude(const QHttpServerRequest& request);
     QJsonObject handleTelescopeApertureArea(const QHttpServerRequest& request);
@@ -192,6 +192,7 @@ private:
     QJsonObject handleTelescopeUnpark(const QHttpServerRequest& request);
 
     // Camera-specific API Endpoints
+    QJsonObject handleCameraConnected(const QHttpServerRequest& request, bool command = false);
     QJsonObject handleCameraBinX(const QHttpServerRequest& request, bool command = false);
     QJsonObject handleCameraBinY(const QHttpServerRequest& request, bool command = false);
     QJsonObject handleCameraCoolerOn(const QHttpServerRequest& request, bool command = false);

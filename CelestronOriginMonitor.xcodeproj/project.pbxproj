@@ -966,7 +966,7 @@
 					"build/moc",
 					"/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/System/Library/Frameworks/OpenGL.framework/Headers",
 					"/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/System/Library/Frameworks/OpenGL.framework/Headers",
-					"/opt/homebrew/Cellar/qt/6.9.2/share/qt/mkspecs/macx-clang");
+					"/opt/homebrew/Cellar/qtbase/6.9.3/share/qt/mkspecs/macx-clang");
 				LIBRARY_SEARCH_PATHS = (
 					"/Users/jonathan/naif/cspice/lib",
 					"/opt/homebrew/share/qt/plugins/permissions",
@@ -1078,7 +1078,7 @@
 					"build/moc",
 					"/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/System/Library/Frameworks/OpenGL.framework/Headers",
 					"/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/System/Library/Frameworks/OpenGL.framework/Headers",
-					"/opt/homebrew/Cellar/qt/6.9.2/share/qt/mkspecs/macx-clang");
+					"/opt/homebrew/Cellar/qtbase/6.9.3/share/qt/mkspecs/macx-clang");
 				LIBRARY_SEARCH_PATHS = (
 					"/Users/jonathan/naif/cspice/lib",
 					"/opt/homebrew/share/qt/plugins/permissions",

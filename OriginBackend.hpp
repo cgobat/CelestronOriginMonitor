@@ -36,6 +36,8 @@ public:
         double raPosition = 0.0;      // RA in hours
         double decPosition = 0.0;     // Dec in degrees
         bool isConnected = false;
+        bool isLogicallyConnected = false;
+        bool isCameraLogicallyConnected = false;
         bool isSlewing = false;
         bool isTracking = false;
         bool isParked = false;
@@ -51,7 +53,19 @@ public:
     bool connectToTelescope(const QString& host, int port = 80);
     void disconnectFromTelescope();
     bool isConnected() const;
+    bool isLogicallyConnected() const;
+    QString getConnectedHost();
 
+    // Set the logical connection state (fast, no network activity)
+    void setConnected(bool connected) {
+        if (connected && !m_status.isConnected) {
+            qWarning() << "Cannot set connected - no physical connection to Origin";
+            return;
+        }
+        m_status.isLogicallyConnected = connected;
+        qDebug() << "Logical connection state:" << m_status.isLogicallyConnected;
+    }
+  
     // Mount operations
     bool gotoPosition(double ra, double dec);
     bool syncPosition(double ra, double dec);
@@ -71,6 +85,8 @@ public:
     int m_nextSequenceId;
 
     // Camera operations
+    bool isCameraLogicallyConnected() const { return m_status.isCameraLogicallyConnected; }
+    void setCameraConnected(bool connected);
     bool isExposing() const;
     bool isImageReady() const;
     QImage getLastImage() const;

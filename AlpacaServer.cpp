@@ -132,6 +132,8 @@ QJsonObject AlpacaServer::handleManagementDescription(const QHttpServerRequest& 
 
 QJsonObject AlpacaServer::handleManagementConfiguredDevices(const QHttpServerRequest& request)
 {
+    qDebug() << "=== MANAGEMENT: configureddevices called ===";
+   
     QJsonArray devices;
     
     // Add the telescope device
@@ -156,9 +158,12 @@ QJsonObject AlpacaServer::handleManagementConfiguredDevices(const QHttpServerReq
 
 // Common Device API Endpoints
 
-QJsonObject AlpacaServer::handleDeviceConnected(const QHttpServerRequest& request, bool command)
+QJsonObject AlpacaServer::handleTelescopeConnected(const QHttpServerRequest& request, bool command)
 {
     ClientTransaction transaction = parseClientTransaction(request);
+    
+    // Determine device type from the request path
+    QString path = request.url().path();
     
     if (command) {
         // PUT - Set the connected state
@@ -166,19 +171,24 @@ QJsonObject AlpacaServer::handleDeviceConnected(const QHttpServerRequest& reques
             return createErrorResponse(1, "Method not allowed");
         }
         
-        // Parse request body
         QMap<QString, QVariant> params;
         if (!parseRequestBody(request, params)) {
+            qWarning() << "Failed to parse request body for" << path;
             return createErrorResponse(1002, "Invalid parameters");
         }
         
-        // Look for 'Connected' parameter
+        // DEBUG: Log all parameters
+        qDebug() << "PUT connected request for" << path;
+        qDebug() << "  All parameters:" << params;
+        
+        // Get Connected parameter
         QVariant connectedVar;
         if (params.contains("Connected")) {
             connectedVar = params["Connected"];
         } else if (params.contains("connected")) {
             connectedVar = params["connected"];
         } else {
+            qWarning() << "Missing Connected parameter in" << params;
             return createErrorResponse(1002, "Missing 'Connected' parameter");
         }
         
@@ -191,28 +201,113 @@ QJsonObject AlpacaServer::handleDeviceConnected(const QHttpServerRequest& reques
             connected = (connectedStr == "true" || connectedStr == "1");
         }
         
-        qDebug() << "Handling connection request, connected=" << connected;
+        qDebug() << "  Device:" << "TELESCOPE";
+        qDebug() << "  Requested state:" << (connected ? "CONNECT" : "DISCONNECT");
+        qDebug() << "  Current telescope state:" << m_telescopeBackend->isLogicallyConnected();
         
-        if (connected && !m_telescopeBackend->isConnected()) {
-            // Connect to the telescope - use default Origin settings
-            QString host = "192.168.1.100"; // Default Origin IP or discover
-            int port = 80; // Origin uses port 80
-            
-            bool success = m_telescopeBackend->connectToTelescope(host, port);
-            if (!success) {
-                return createErrorResponse(1, "Failed to connect to telescope");
-            }
-        }
-        else if (!connected && m_telescopeBackend->isConnected()) {
-            // Disconnect from the telescope
-            m_telescopeBackend->disconnectFromTelescope();
-        }
+        // Handle telescope connection/disconnection
+	if (connected && !m_telescopeBackend->isConnected()) {
+	  qWarning() << "  -> FAILED to connect telescope";
+	  return createErrorResponse(1, "Failed to connect to telescope");
+	}
+	if (connected && !m_telescopeBackend->isLogicallyConnected()) {
+	    m_telescopeBackend->setConnected(true);
+	    qDebug() << "  -> Telescope CONNECTED successfully";
+	  }
+	else if (!connected && m_telescopeBackend->isLogicallyConnected()) {
+	  qDebug() << "  -> Attempting to DISCONNECT telescope";
+	  m_telescopeBackend->setConnected(false);
+	  qDebug() << "  -> Telescope DISCONNECTED";
+	}
+	else {
+	  qDebug() << "  -> No state change needed (already in requested state)";
+	}
         
-        return createSuccessResponse(m_telescopeBackend->isConnected(), transaction);
+        bool finalState = m_telescopeBackend->isLogicallyConnected();
+        qDebug() << "  Final telescope state:" << finalState;
+        
+        return createSuccessResponse(finalState, transaction);
     }
     else {
-        // GET - Return the connected state
-        return createSuccessResponse(m_telescopeBackend->isConnected(), transaction);
+        // GET - Return the connected state (same for both devices)
+        bool state = m_telescopeBackend->isLogicallyConnected();
+        qDebug() << "GET connected for" << path << "-> returning" << state;
+        return createSuccessResponse(state, transaction);
+    }
+}
+
+// In AlpacaServer.cpp, update handleCameraConnected():
+QJsonObject AlpacaServer::handleCameraConnected(const QHttpServerRequest& request, bool command)
+{
+    ClientTransaction transaction = parseClientTransaction(request);
+    
+    QString path = request.url().path();
+    
+    if (command) {
+        // PUT - Set the connected state
+        if (request.method() != QHttpServerRequest::Method::Put) {
+            return createErrorResponse(1, "Method not allowed");
+        }
+        
+        QMap<QString, QVariant> params;
+        if (!parseRequestBody(request, params)) {
+            qWarning() << "Failed to parse request body for" << path;
+            return createErrorResponse(1002, "Invalid parameters");
+        }
+        
+        qDebug() << "PUT connected request for" << path;
+        qDebug() << "  All parameters:" << params;
+        
+        // Get Connected parameter
+        QVariant connectedVar;
+        if (params.contains("Connected")) {
+            connectedVar = params["Connected"];
+        } else if (params.contains("connected")) {
+            connectedVar = params["connected"];
+        } else {
+            qWarning() << "Missing Connected parameter in" << params;
+            return createErrorResponse(1002, "Missing 'Connected' parameter");
+        }
+        
+        // Convert to bool
+        bool connected = false;
+        if (connectedVar.type() == QVariant::Bool) {
+            connected = connectedVar.toBool();
+        } else {
+            QString connectedStr = connectedVar.toString().toLower();
+            connected = (connectedStr == "true" || connectedStr == "1");
+        }
+        
+        qDebug() << "  Device: CAMERA";
+        qDebug() << "  Requested state:" << (connected ? "CONNECT" : "DISCONNECT");
+        qDebug() << "  Current camera state:" << m_telescopeBackend->isCameraLogicallyConnected();
+        
+        // Handle camera logical connection
+        if (connected && !m_telescopeBackend->isCameraLogicallyConnected()) {
+            if (!m_telescopeBackend->isConnected()) {
+                return createErrorResponse(1, "No physical connection to telescope");
+            }
+            m_telescopeBackend->setCameraConnected(true);
+            qDebug() << "  -> Camera logically CONNECTED";
+        }
+        else if (!connected && m_telescopeBackend->isCameraLogicallyConnected()) {
+            m_telescopeBackend->setCameraConnected(false);
+            qDebug() << "  -> Camera logically DISCONNECTED";
+        }
+        else {
+            qDebug() << "  -> No state change needed (already in requested state)";
+        }
+        
+        bool finalState = m_telescopeBackend->isCameraLogicallyConnected();
+        qDebug() << "  Final camera state:" << finalState;
+        
+        return createSuccessResponse(finalState, transaction);
+    }
+    else {
+        // GET - Return the camera connected state
+        bool state = m_telescopeBackend->isCameraLogicallyConnected();
+        qDebug() << "GET connected for" << path << "-> returning" << state;
+        return createSuccessResponse(state, transaction);
     }
 }
 
@@ -269,7 +364,7 @@ QJsonObject AlpacaServer::handleTelescopeAltitude(const QHttpServerRequest& requ
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -281,7 +376,7 @@ QJsonObject AlpacaServer::handleTelescopeAzimuth(const QHttpServerRequest& reque
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -293,7 +388,7 @@ QJsonObject AlpacaServer::handleTelescopeDeclination(const QHttpServerRequest& r
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -305,7 +400,7 @@ QJsonObject AlpacaServer::handleTelescopeRightAscension(const QHttpServerRequest
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -339,7 +434,7 @@ QJsonObject AlpacaServer::handleTelescopeAtPark(const QHttpServerRequest& reques
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -351,7 +446,7 @@ QJsonObject AlpacaServer::handleTelescopeSlewing(const QHttpServerRequest& reque
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -363,7 +458,7 @@ QJsonObject AlpacaServer::handleTelescopeTracking(const QHttpServerRequest& requ
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -458,7 +553,7 @@ QJsonObject AlpacaServer::handleTelescopeAbortSlew(const QHttpServerRequest& req
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -474,7 +569,7 @@ QJsonObject AlpacaServer::handleTelescopePark(const QHttpServerRequest& request)
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -490,7 +585,7 @@ QJsonObject AlpacaServer::handleTelescopeUnpark(const QHttpServerRequest& reques
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -506,7 +601,7 @@ QJsonObject AlpacaServer::handleTelescopeFindHome(const QHttpServerRequest& requ
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -522,7 +617,7 @@ QJsonObject AlpacaServer::handleTelescopeSlewToCoordinates(const QHttpServerRequ
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -559,7 +654,7 @@ QJsonObject AlpacaServer::handleTelescopeSyncToCoordinates(const QHttpServerRequ
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -855,7 +950,7 @@ QJsonObject AlpacaServer::handleCameraCCDTemperature(const QHttpServerRequest& r
     ClientTransaction transaction = parseClientTransaction(request);
     
     double temp = 20.0; // Default
-    if (m_telescopeBackend && m_telescopeBackend->isConnected()) {
+    if (m_telescopeBackend && m_telescopeBackend->isLogicallyConnected()) {
         temp = m_telescopeBackend->temperature();
     }
     
@@ -895,7 +990,7 @@ QHttpServerResponse AlpacaServer::handleCameraImageArray(const QHttpServerReques
     ClientTransaction transaction = parseClientTransaction(request);
     
     // Check if we're connected and an image is ready
-    if (!m_telescopeBackend || !m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend || !m_telescopeBackend->isLogicallyConnected()) {
         QJsonObject errorJson = createErrorResponse(1031, "Not connected to camera");
         return QHttpServerResponse(QJsonDocument(errorJson).toJson(), "application/json");
     }
@@ -1180,48 +1275,42 @@ void AlpacaServer::setupEndpoints()
         return this->handleManagementConfiguredDevices(request);
     });
 
-    // Setup telescope and camera endpoints
-    const char *devicePaths[] = {"/api/v1/telescope/0", "/api/v1/camera/0"};
-    
-    for (const QString& devicePath : devicePaths) {
-        // Common device properties
-        m_server.route(devicePath + "/connected", [this, methodToString](const QHttpServerRequest& request) {
-            emit requestReceived(methodToString(request.method()), request.url().path());
-            if (request.method() == QHttpServerRequest::Method::Put) {
-                return this->handleDeviceConnected(request, true);
-            } else {
-                return this->handleDeviceConnected(request);
-            }
-        });
-        
-        m_server.route(devicePath + "/description", [this, methodToString](const QHttpServerRequest& request) {
-            emit requestReceived(methodToString(request.method()), request.url().path());
-            return this->handleDeviceDescription(request);
-        });
-        
-        m_server.route(devicePath + "/driverinfo", [this, methodToString](const QHttpServerRequest& request) {
-            emit requestReceived(methodToString(request.method()), request.url().path());
-            return this->handleDeviceDriverInfo(request);
-        });
-        
-        m_server.route(devicePath + "/driverversion", [this, methodToString](const QHttpServerRequest& request) {
-            emit requestReceived(methodToString(request.method()), request.url().path());
-            return this->handleDeviceDriverVersion(request);
-        });
-        
-        m_server.route(devicePath + "/interfaceversion", [this, methodToString](const QHttpServerRequest& request) {
-            emit requestReceived(methodToString(request.method()), request.url().path());
-            return this->handleDeviceInterfaceVersion(request);
-        });
-        
-        m_server.route(devicePath + "/name", [this, methodToString](const QHttpServerRequest& request) {
-            emit requestReceived(methodToString(request.method()), request.url().path());
-            return this->handleDeviceName(request);
-        });
-    }
-    
     // Telescope-specific endpoints
     const QString telescopePath = "/api/v1/telescope/0";
+    
+    m_server.route(telescopePath + "/connected", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleTelescopeConnected(request, true);
+	} else {
+	    return this->handleTelescopeConnected(request);
+	}
+    });
+
+    m_server.route(telescopePath + "/description", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceDescription(request);
+    });
+
+    m_server.route(telescopePath + "/driverinfo", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceDriverInfo(request);
+    });
+
+    m_server.route(telescopePath + "/driverversion", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceDriverVersion(request);
+    });
+
+    m_server.route(telescopePath + "/interfaceversion", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceInterfaceVersion(request);
+    });
+
+    m_server.route(telescopePath + "/name", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceName(request);
+    });
     
     m_server.route(telescopePath + "/altitude", [this, methodToString](const QHttpServerRequest& request) {
         emit requestReceived(methodToString(request.method()), request.url().path());
@@ -1297,9 +1386,168 @@ void AlpacaServer::setupEndpoints()
         emit requestReceived(methodToString(request.method()), request.url().path());
         return this->handleTelescopeSyncToCoordinates(request);
     });
-    
+
+    // Add these to setupEndpoints() after the existing telescope routes:
+
+    m_server.route(telescopePath + "/canslewasync", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSlewAsync(request);
+    });
+
+    m_server.route(telescopePath + "/canslewaltaz", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSlewAltAz(request);
+    });
+
+    m_server.route(telescopePath + "/canslewaltazasync", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSlewAltAzAsync(request);
+    });
+
+    m_server.route(telescopePath + "/cansync", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSync(request);
+    });
+
+    m_server.route(telescopePath + "/canfindhome", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanFindHome(request);
+    });
+
+    m_server.route(telescopePath + "/canpulseguide", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanPulseGuide(request);
+    });
+
+    m_server.route(telescopePath + "/cansettracking", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSetTracking(request);
+    });
+
+    m_server.route(telescopePath + "/canslewasync", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSlewAsync(request);
+    });
+
+    m_server.route(telescopePath + "/canslewaltaz", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSlewAltAz(request);
+    });
+
+    m_server.route(telescopePath + "/canslewaltazasync", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSlewAltAzAsync(request);
+    });
+
+    m_server.route(telescopePath + "/cansync", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSync(request);
+    });
+
+    m_server.route(telescopePath + "/cansyncaltaz", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanSyncAltAz(request);
+    });
+
+    m_server.route(telescopePath + "/canunpark", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeCanUnpark(request);
+    });
+
+    m_server.route(telescopePath + "/alignmentmode", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeAlignmentMode(request);
+    });
+
+    m_server.route(telescopePath + "/sideofpier", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	ClientTransaction transaction = parseClientTransaction(request);
+	// Alt-Az mount doesn't have pier side
+	return createSuccessResponse(0, transaction); // 0 = pierUnknown
+    });
+
+    m_server.route(telescopePath + "/cansetpierside", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	ClientTransaction transaction = parseClientTransaction(request);
+	return createSuccessResponse(false, transaction);
+    });
+
+    m_server.route(telescopePath + "/equatorialsystem", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	ClientTransaction transaction = parseClientTransaction(request);
+	// 0 = Other, 1 = Topocentric (local), 2 = J2000, 3 = J2050, 4 = B1950
+	return createSuccessResponse(1, transaction); // Local topocentric
+    });
+
+    m_server.route(telescopePath + "/atpark", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeAtPark(request);
+    });
+
+    m_server.route(telescopePath + "/focallength", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	ClientTransaction transaction = parseClientTransaction(request);
+	// Origin has 150mm aperture at f/5 = 750mm focal length
+	return createSuccessResponse(0.750, transaction); // in meters
+    });
+
+    // Add to setupEndpoints() in the telescope section:
+
+    m_server.route(telescopePath + "/slewtocoordinatesasync", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeSlewToCoordinatesAsync(request);
+    });
+
+    m_server.route(telescopePath + "/slewtocoordinates", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeSlewToCoordinates(request);
+    });
+
+    m_server.route(telescopePath + "/slewing", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeSlewing(request);
+    });
+
+    m_server.route(telescopePath + "/abortslew", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleTelescopeAbortSlew(request);
+    });    
     // Camera-specific endpoints
     const QString cameraPath = "/api/v1/camera/0";
+    
+    m_server.route(cameraPath + "/connected", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleCameraConnected(request, true);
+	} else {
+	    return this->handleCameraConnected(request);
+	}
+    });
+
+    m_server.route(cameraPath + "/description", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceDescription(request);
+    });
+
+    m_server.route(cameraPath + "/driverinfo", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceDriverInfo(request);
+    });
+
+    m_server.route(cameraPath + "/driverversion", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceDriverVersion(request);
+    });
+
+    m_server.route(cameraPath + "/interfaceversion", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceInterfaceVersion(request);
+    });
+
+    m_server.route(cameraPath + "/name", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleDeviceName(request);
+    });
     
     m_server.route(cameraPath + "/camerastate", [this, methodToString](const QHttpServerRequest& request) {
         emit requestReceived(methodToString(request.method()), request.url().path());
@@ -1345,6 +1593,298 @@ void AlpacaServer::setupEndpoints()
         emit requestReceived(methodToString(request.method()), request.url().path());
         return this->handleCameraPixelSizeY(request);
     });
+
+    // Add to setupEndpoints() in the camera section:
+
+    m_server.route(cameraPath + "/maxbinx", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraMaxBinX(request);
+    });
+
+    m_server.route(cameraPath + "/maxbiny", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraMaxBinY(request);
+    });
+
+    m_server.route(cameraPath + "/binx", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleCameraBinX(request, true);
+	} else {
+	    return this->handleCameraBinX(request, false);
+	}
+    });
+
+    m_server.route(cameraPath + "/biny", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleCameraBinY(request, true);
+	} else {
+	    return this->handleCameraBinY(request, false);
+	}
+    });
+
+    m_server.route(cameraPath + "/sensorname", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraSensorName(request);
+    });
+
+    m_server.route(cameraPath + "/cangetcoolerpower", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraCanGetCoolerPower(request);
+    });
+
+    m_server.route(cameraPath + "/cansetccdtemperature", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraCanSetCCDTemperature(request);
+    });
+
+    m_server.route(cameraPath + "/ccdtemperature", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraCCDTemperature(request);
+    });
+
+    m_server.route(cameraPath + "/canfastreadout", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraCanFastReadout(request);
+    });
+
+    m_server.route(cameraPath + "/readoutmodes", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraReadoutModes(request);
+    });
+
+    m_server.route(cameraPath + "/bayeroffsetx", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraBayerOffsetX(request);
+    });
+
+    m_server.route(cameraPath + "/cooleron", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleCameraCoolerOn(request, true);
+	} else {
+	    return this->handleCameraCoolerOn(request, false);
+	}
+    });
+
+    m_server.route(cameraPath + "/maxadu", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraMaxADU(request);
+    });
+
+    m_server.route(cameraPath + "/exposuremax", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraExposureMax(request);
+    });
+
+    m_server.route(cameraPath + "/exposuremin", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraExposureMin(request);
+    });
+
+    m_server.route(cameraPath + "/exposureresolution", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraExposureResolution(request);
+    });
+
+    m_server.route(cameraPath + "/gain", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleCameraGain(request, true);
+	} else {
+	    return this->handleCameraGain(request, false);
+	}
+    });
+
+    m_server.route(cameraPath + "/startx", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleCameraStartX(request, true);
+	} else {
+	    return this->handleCameraStartX(request, false);
+	}
+    });
+
+    m_server.route(cameraPath + "/canabortexposure", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraCanAbortExposure(request);
+    });
+
+    // Add to setupEndpoints() in the camera section:
+
+    m_server.route(cameraPath + "/bayeroffsety", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraBayerOffsetY(request);
+    });
+
+    m_server.route(cameraPath + "/gainmin", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraGainMin(request);
+    });
+
+    m_server.route(cameraPath + "/gains", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraGains(request);
+    });
+
+    m_server.route(cameraPath + "/starty", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleCameraStartY(request, true);
+	} else {
+	    return this->handleCameraStartY(request, false);
+	}
+    });
+    // Add to setupEndpoints() in the camera section:
+
+    m_server.route(cameraPath + "/numy", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleCameraNumY(request, true);
+	} else {
+	    return this->handleCameraNumY(request, false);
+	}
+    });
+    // Add to setupEndpoints() in the camera section:
+
+    m_server.route(cameraPath + "/sensortype", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraSensorType(request);
+    });
+
+    m_server.route(cameraPath + "/gainmax", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	return this->handleCameraGainMax(request);
+    });
+
+    m_server.route(cameraPath + "/numx", [this, methodToString](const QHttpServerRequest& request) {
+	emit requestReceived(methodToString(request.method()), request.url().path());
+	if (request.method() == QHttpServerRequest::Method::Put) {
+	    return this->handleCameraNumX(request, true);
+	} else {
+	    return this->handleCameraNumX(request, false);
+	}
+    });    
+    // Main setup page listing all devices
+    m_server.route("/setup", [this](const QHttpServerRequest& request) {
+	emit requestReceived("GET", request.url().path());
+
+	bool telescopeConnected = m_telescopeBackend && m_telescopeBackend->isLogicallyConnected();
+	QString connectedHost = m_telescopeBackend ? m_telescopeBackend->getConnectedHost() : "Not connected";
+
+	QString html = QString(R"html(
+    <!DOCTYPE html>
+    <html>
+    <head>
+	<title>Celestron Origin Alpaca Server Setup</title>
+	<style>
+	    body { font-family: Arial, sans-serif; margin: 20px; }
+	    h1 { color: #333; }
+	    .device { 
+		border: 1px solid #ccc; 
+		padding: 15px; 
+		margin: 10px 0; 
+		border-radius: 5px;
+		background-color: #f9f9f9;
+	    }
+	    .device h2 { margin-top: 0; color: #0066cc; }
+	    .status { font-weight: bold; }
+	    .connected { color: green; }
+	    .disconnected { color: red; }
+	    a { color: #0066cc; text-decoration: none; }
+	    a:hover { text-decoration: underline; }
+	</style>
+    </head>
+    <body>
+	<h1>Celestron Origin Alpaca Server</h1>
+	<p>Server Status: <span class="status %1">%2</span></p>
+	<p>Origin Address: %3</p>
+
+	<h2>Available Devices</h2>
+
+	<div class="device">
+	    <h2>Celestron Origin Telescope</h2>
+	    <p><strong>Device Type:</strong> Telescope</p>
+	    <p><strong>Device Number:</strong> 0</p>
+	    <p><strong>API Endpoint:</strong> /api/v1/telescope/0</p>
+	    <p><a href="/setup/v1/telescope/0/setup">Configure Device</a></p>
+	</div>
+
+	<div class="device">
+	    <h2>Celestron Origin Camera</h2>
+	    <p><strong>Device Type:</strong> Camera</p>
+	    <p><strong>Device Number:</strong> 0</p>
+	    <p><strong>API Endpoint:</strong> /api/v1/camera/0</p>
+	    <p><a href="/setup/v1/camera/0/setup">Configure Device</a></p>
+	</div>
+
+	<hr>
+	<p><small>Celestron Origin Alpaca Server v1.0 | <a href="/management/v1/description">Management API</a></small></p>
+    </body>
+    </html>
+    )html").arg(telescopeConnected ? "connected" : "disconnected")
+	   .arg(telescopeConnected ? "Connected" : "Disconnected")
+	   .arg(connectedHost);
+
+	return QHttpServerResponse("text/html", html.toUtf8());
+    });
+
+    // Setup pages for camera and telescope
+    m_server.route("/setup/v1/camera/0/setup", [this](const QHttpServerRequest& request) {
+	emit requestReceived("GET", request.url().path());
+
+	QString connectedHost = m_telescopeBackend ? m_telescopeBackend->getConnectedHost() : "Not connected";
+	bool isConnected = m_telescopeBackend && m_telescopeBackend->isLogicallyConnected();
+
+	QString html = QString(R"html(
+    <!DOCTYPE html>
+    <html>
+    <head>
+	<title>Celestron Origin Camera Setup</title>
+    </head>
+    <body>
+	<h1>Celestron Origin Camera</h1>
+	<p>This camera is part of the Celestron Origin telescope system.</p>
+	<p>Status: %1</p>
+	<p>Origin Address: %2</p>
+	<p>No configuration required - the camera uses the telescope's connection.</p>
+	<p><a href="javascript:window.close()">Close</a></p>
+    </body>
+    </html>
+    )html").arg(isConnected ? "Connected" : "Disconnected")
+	   .arg(connectedHost);
+    
+    return QHttpServerResponse("text/html", html.toUtf8());
+});
+
+m_server.route("/setup/v1/telescope/0/setup", [this](const QHttpServerRequest& request) {
+    emit requestReceived("GET", request.url().path());
+    
+    QString connectedHost = m_telescopeBackend ? m_telescopeBackend->getConnectedHost() : "Not connected";
+    bool isConnected = m_telescopeBackend && m_telescopeBackend->isLogicallyConnected();
+    
+    QString html = QString(R"html(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Celestron Origin Telescope Setup</title>
+</head>
+<body>
+    <h1>Celestron Origin Telescope</h1>
+    <p>Status: %1</p>
+    <p>Connected to Origin at: %2</p>
+    <p>No configuration required.</p>
+    <p><a href="javascript:window.close()">Close</a></p>
+</body>
+</html>
+)html").arg(isConnected ? "Connected" : "Disconnected")
+       .arg(connectedHost);
+    
+    return QHttpServerResponse("text/html", html.toUtf8());
+});
+
+ 
 }
 
 // Implement remaining stub methods for completeness
@@ -1581,7 +2121,7 @@ QJsonObject AlpacaServer::handleTelescopeMoveAxis(const QHttpServerRequest& requ
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -1638,7 +2178,7 @@ QJsonObject AlpacaServer::handleTelescopeSlewToAltAz(const QHttpServerRequest& r
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -1691,7 +2231,7 @@ QJsonObject AlpacaServer::handleTelescopeSlewToTarget(const QHttpServerRequest& 
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -1716,7 +2256,7 @@ QJsonObject AlpacaServer::handleTelescopeSyncToAltAz(const QHttpServerRequest& r
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -1748,7 +2288,7 @@ QJsonObject AlpacaServer::handleTelescopeSyncToTarget(const QHttpServerRequest& 
 {
     ClientTransaction transaction = parseClientTransaction(request);
     
-    if (!m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend->isLogicallyConnected()) {
         return createErrorResponse(1031, "Not connected to telescope");
     }
     
@@ -1767,7 +2307,7 @@ QJsonObject AlpacaServer::handleTelescopeSyncToTarget(const QHttpServerRequest& 
 // Helper method for fetching images from Origin
 QImage AlpacaServer::fetchFitsFromOrigin(double exposureTime, int gain, int binning)
 {
-    if (!m_telescopeBackend || !m_telescopeBackend->isConnected()) {
+    if (!m_telescopeBackend || !m_telescopeBackend->isLogicallyConnected()) {
         qWarning() << "Cannot capture image - not connected to telescope";
         return QImage();
     }

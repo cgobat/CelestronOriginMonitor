@@ -134,6 +134,8 @@ void OriginBackend::disconnectFromTelescope()
     }
 
     m_status.isConnected = false;
+    m_status.isLogicallyConnected = false;
+    m_status.isCameraLogicallyConnected = false;
     qDebug() << "disconnected";
     
     emit disconnected();
@@ -141,7 +143,12 @@ void OriginBackend::disconnectFromTelescope()
 
 bool OriginBackend::isConnected() const
 {
-    return (m_webSocket->isValid() && m_webSocket->state() == QAbstractSocket::ConnectedState);
+    return m_status.isConnected;
+}
+
+bool OriginBackend::isLogicallyConnected() const
+{
+    return m_status.isConnected && m_status.isLogicallyConnected;
 }
 
 bool OriginBackend::gotoPosition(double ra, double dec)
@@ -564,6 +571,7 @@ void OriginBackend::onWebSocketDisconnected()
     logWebSocketMessage("SYSTEM", "Disconnected from telescope");
     
     m_status.isConnected = false;
+    m_status.isLogicallyConnected = false;
     qDebug() << "disconnected";
     
     if (m_statusTimer->isActive()) {
@@ -901,4 +909,25 @@ void OriginBackend::cleanupLogging() {
         delete m_logFile;
         m_logFile = nullptr;
     }
+}
+
+QString OriginBackend::getConnectedHost()
+{
+  return m_connectedHost;
+}
+
+// In OriginBackend.cpp:
+void OriginBackend::setCameraConnected(bool connected)
+{
+    qDebug() << "setCameraConnected called with:" << connected;
+    qDebug() << "  Physical connection:" << m_status.isConnected;
+    qDebug() << "  Camera logical before:" << m_status.isCameraLogicallyConnected;
+    
+    if (connected && !m_status.isConnected) {
+        qWarning() << "Cannot logically connect camera - no physical connection";
+        return;
+    }
+    
+    m_status.isCameraLogicallyConnected = connected;
+    qDebug() << "  Camera logical after:" << m_status.isCameraLogicallyConnected;
 }
