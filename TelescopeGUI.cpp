@@ -1,11 +1,10 @@
 #include "TelescopeGUI.hpp"
 #include "CommandInterface.hpp"
-#include "AlpacaServer.hpp"
 #include "OriginBackend.hpp"
 #include "MessierCatalog.hpp"
 #include <cmath>
 
-TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent),cometTracker() {
+TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent) {
     setWindowTitle("Celestron Origin Monitor");
     resize(900, 700);
     
@@ -20,29 +19,7 @@ TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent),cometTracker()
     connect(dataProcessor, &TelescopeDataProcessor::diskStatusUpdated, this, &TelescopeGUI::updateDiskDisplay);
     connect(dataProcessor, &TelescopeDataProcessor::dewHeaterStatusUpdated, this, &TelescopeGUI::updateDewHeaterDisplay);
 
-    // NEW: Initialize Alpaca components
     originBackend = new OriginBackend(this);
-    alpacaServer = new AlpacaServer(this);
-    alpacaServer->setTelescopeBackend(originBackend);
-
-    // NEW: Initialize comet tracker
-    cometTracker = new CometTracker(originBackend, this);
-
-    // Connect Alpaca server signals
-    connect(alpacaServer, &AlpacaServer::serverStarted, this, &TelescopeGUI::onAlpacaServerStarted);
-    connect(alpacaServer, &AlpacaServer::serverStopped, this, &TelescopeGUI::onAlpacaServerStopped);
-    connect(alpacaServer, &AlpacaServer::requestReceived, this, &TelescopeGUI::onAlpacaRequestReceived);
-    
-    // Connect Origin backend signals
-    connect(originBackend, &OriginBackend::connected, this, [this]() {
-        alpacaLogTextEdit->append(QString("[%1] Origin telescope connected")
-                                 .arg(QTime::currentTime().toString()));
-    });
-    
-    connect(originBackend, &OriginBackend::disconnected, this, [this]() {
-        alpacaLogTextEdit->append(QString("[%1] Origin telescope disconnected")
-                                 .arg(QTime::currentTime().toString()));
-    });
     
     setupUI();
     setupDiscovery();
@@ -289,13 +266,11 @@ void TelescopeGUI::connectToSelectedTelescope() {
 void TelescopeGUI::onWebSocketConnected() {
     statusLabel->setText("Connected to telescope!");
     connectButton->setText("Disconnect");
-    isConnected = true;
 }
 
 void TelescopeGUI::onWebSocketDisconnected() {
     statusLabel->setText("Disconnected from telescope");
     connectButton->setText("Connect");
-    isConnected = false;
     connectedIpAddress = "";
 }
 
@@ -377,7 +352,7 @@ void TelescopeGUI::updateImageDisplay() {
     imageFovYLabel->setText(QString::number(data.lastImage.fovY * 180.0 / M_PI, 'f', 4) + "°");
     
     // Request image from the telescope if connected
-    if (isConnected && !data.lastImage.fileLocation.isEmpty()) {
+    if (originBackend->isConnected() && !data.lastImage.fileLocation.isEmpty()) {
         requestImage(data.lastImage.fileLocation);
     }
 }
@@ -416,7 +391,7 @@ void TelescopeGUI::updateTimeDisplay() {
     QDateTime now = QDateTime::currentDateTime();
     
     // Update connection status time
-    if (isConnected) {
+    if (originBackend->isConnected()) {
         const TelescopeData &data = dataProcessor->getData();
         
         // Calculate time since last update for each component
@@ -474,9 +449,6 @@ void TelescopeGUI::setupUI() {
     tabWidget->addTab(createDiskTab(), "Disk");
     tabWidget->addTab(createDewHeaterTab(), "Dew Heater");
     tabWidget->addTab(createSlewAndImageTab(), "Slew & Image");   
-    tabWidget->addTab(createDownloadTab(), "Download");
-    tabWidget->addTab(createAlpacaTab(), "Alpaca");  // NEW TAB
-    tabWidget->addTab(createCometTrackingTab(), "Comets");  // NEW TAB
     
     mainLayout->addWidget(tabWidget);
 }
@@ -1184,209 +1156,6 @@ void TelescopeGUI::updateLastUpdateLabel(QLabel *label, const QDateTime &lastUpd
     }
 }
 
-
-// Add the implementation of createDownloadTab()
-QWidget* TelescopeGUI::createDownloadTab() {
-    QWidget *tab = new QWidget();
-    QVBoxLayout *mainLayout = new QVBoxLayout(tab);
-    
-    // Download path selection
-    QGroupBox *pathGroup = new QGroupBox("Download Path", tab);
-    QHBoxLayout *pathLayout = new QHBoxLayout(pathGroup);
-    
-    downloadPathEdit = new QLineEdit(QDir::homePath() + "/CelestronOriginDownloads", pathGroup);
-    pathLayout->addWidget(downloadPathEdit);
-    
-    browseButton = new QPushButton("Browse", pathGroup);
-    connect(browseButton, &QPushButton::clicked, this, [this]() {
-        QString dir = QFileDialog::getExistingDirectory(this, "Select Download Directory",
-                                                      downloadPathEdit->text(),
-                                                      QFileDialog::ShowDirsOnly |
-                                                      QFileDialog::DontResolveSymlinks);
-        if (!dir.isEmpty()) {
-            downloadPathEdit->setText(dir);
-        }
-    });
-    pathLayout->addWidget(browseButton);
-    
-    mainLayout->addWidget(pathGroup);
-    
-    // Control buttons
-    QHBoxLayout *controlLayout = new QHBoxLayout();
-    
-    startDownloadButton = new QPushButton("Start Automatic Download", tab);
-    connect(startDownloadButton, &QPushButton::clicked, this, &TelescopeGUI::startAutomaticDownload);
-    controlLayout->addWidget(startDownloadButton);
-    
-    stopDownloadButton = new QPushButton("Stop Download", tab);
-    stopDownloadButton->setEnabled(false);
-    connect(stopDownloadButton, &QPushButton::clicked, this, &TelescopeGUI::stopAutomaticDownload);
-    controlLayout->addWidget(stopDownloadButton);
-    
-    mainLayout->addLayout(controlLayout);
-    
-    // Progress display
-    QGroupBox *progressGroup = new QGroupBox("Download Progress", tab);
-    QVBoxLayout *progressLayout = new QVBoxLayout(progressGroup);
-    
-    QLabel *overallLabel = new QLabel("Overall Progress:", progressGroup);
-    progressLayout->addWidget(overallLabel);
-    
-    overallProgressBar = new QProgressBar(progressGroup);
-    overallProgressBar->setRange(0, 100);
-    overallProgressBar->setValue(0);
-    progressLayout->addWidget(overallProgressBar);
-    
-    currentFileLabel = new QLabel("Current File:", progressGroup);
-    progressLayout->addWidget(currentFileLabel);
-    
-    currentFileProgressBar = new QProgressBar(progressGroup);
-    currentFileProgressBar->setRange(0, 100);
-    currentFileProgressBar->setValue(0);
-    progressLayout->addWidget(currentFileProgressBar);
-    
-    mainLayout->addWidget(progressGroup);
-    
-    // Download log
-    QGroupBox *logGroup = new QGroupBox("Download Log", tab);
-    QVBoxLayout *logLayout = new QVBoxLayout(logGroup);
-    
-    downloadLogList = new QListWidget(logGroup);
-    logLayout->addWidget(downloadLogList);
-    
-    mainLayout->addWidget(logGroup);
-    
-    return tab;
-}
-
-// Add the implementation of startAutomaticDownload()
-void TelescopeGUI::startAutomaticDownload() {
-    if (!isConnected) {
-        QMessageBox::warning(this, "Not Connected", "Please connect to a telescope first");
-        return;
-    }
-    
-    if (isDownloading) {
-        return;
-    }
-    
-    QString downloadPath = downloadPathEdit->text();
-    
-    // Create directory if it doesn't exist
-    QDir dir(downloadPath);
-    if (!dir.exists()) {
-        if (!dir.mkpath(".")) {
-            QMessageBox::warning(this, "Error", "Failed to create download directory");
-            return;
-        }
-    }
-    
-    autoDownloader->setDownloadPath(downloadPath);
-    
-    // Start download
-    isDownloading = true;
-    startDownloadButton->setEnabled(false);
-    stopDownloadButton->setEnabled(true);
-    browseButton->setEnabled(false);
-    downloadPathEdit->setEnabled(false);
-    
-    // Reset progress indicators
-    overallProgressBar->setValue(0);
-    currentFileProgressBar->setValue(0);
-    currentFileLabel->setText("Current File: Initializing...");
-    
-    // Clear log
-    downloadLogList->clear();
-    
-    // Add start entry to log
-    QListWidgetItem *item = new QListWidgetItem(QString("Starting automatic download to %1").arg(downloadPath));
-    downloadLogList->addItem(item);
-    downloadLogList->scrollToBottom();
-    
-    // Start the download
-    autoDownloader->startDownload();
-}
-
-// Add the implementation of stopAutomaticDownload()
-void TelescopeGUI::stopAutomaticDownload() {
-    if (!isDownloading || !autoDownloader) {
-        return;
-    }
-    
-    // Stop the download
-    autoDownloader->stopDownload();
-    
-    // Update UI
-    isDownloading = false;
-    startDownloadButton->setEnabled(true);
-    stopDownloadButton->setEnabled(false);
-    browseButton->setEnabled(true);
-    downloadPathEdit->setEnabled(true);
-    
-    // Add stop entry to log
-    QListWidgetItem *item = new QListWidgetItem("Download stopped by user");
-    downloadLogList->addItem(item);
-    downloadLogList->scrollToBottom();
-}
-
-// Add the implementation of updateDownloadProgress()
-void TelescopeGUI::updateDownloadProgress(const QString &currentFile, int filesCompleted, 
-                                        int totalFiles, qint64 bytesReceived, qint64 bytesTotal) {
-    // Update current file progress
-    if (bytesTotal > 0) {
-        int percent = (int)((bytesReceived * 100) / bytesTotal);
-        currentFileProgressBar->setValue(percent);
-    }
-    
-    // Update current file label
-    currentFileLabel->setText(QString("Current File: %1").arg(currentFile));
-    
-    // Update overall progress
-    if (totalFiles > 0) {
-        int percent = (int)((filesCompleted * 100) / totalFiles);
-        overallProgressBar->setValue(percent);
-    }
-}
-
-// Add the implementation of event handlers
-void TelescopeGUI::onDirectoryDownloadStarted(const QString &directory) {
-    QListWidgetItem *item = new QListWidgetItem(QString("Starting download of directory: %1").arg(directory));
-    downloadLogList->addItem(item);
-    downloadLogList->scrollToBottom();
-}
-
-void TelescopeGUI::onFileDownloadStarted(const QString &fileName) {
-    QListWidgetItem *item = new QListWidgetItem(QString("Downloading: %1").arg(fileName));
-    downloadLogList->addItem(item);
-    downloadLogList->scrollToBottom();
-}
-
-void TelescopeGUI::onFileDownloaded(const QString &fileName, bool success) {
-    QString status = success ? "Success" : "Failed";
-    QListWidgetItem *item = new QListWidgetItem(QString("Download %1: %2").arg(status, fileName));
-    downloadLogList->addItem(item);
-    downloadLogList->scrollToBottom();
-}
-
-void TelescopeGUI::onDirectoryDownloaded(const QString &directory) {
-    QListWidgetItem *item = new QListWidgetItem(QString("Completed download of directory: %1").arg(directory));
-    downloadLogList->addItem(item);
-    downloadLogList->scrollToBottom();
-}
-
-void TelescopeGUI::onAllDownloadsComplete() {
-    QListWidgetItem *item = new QListWidgetItem("All downloads complete!");
-    downloadLogList->addItem(item);
-    downloadLogList->scrollToBottom();
-    
-    // Update UI
-    isDownloading = false;
-    startDownloadButton->setEnabled(true);
-    stopDownloadButton->setEnabled(false);
-    browseButton->setEnabled(true);
-    downloadPathEdit->setEnabled(true);
-}
-
 QWidget* TelescopeGUI::createSlewAndImageTab() {
     QWidget *tab = new QWidget();
     QVBoxLayout *mainLayout = new QVBoxLayout(tab);
@@ -1541,315 +1310,8 @@ QWidget* TelescopeGUI::createSlewAndImageTab() {
     return tab;
 }
 
-
-// Add this method to TelescopeGUI.cpp:
-QWidget* TelescopeGUI::createAlpacaTab()
-{
-    QWidget *tab = new QWidget();
-    QVBoxLayout *mainLayout = new QVBoxLayout(tab);
-    
-    // Server Control Section
-    QGroupBox *controlGroup = new QGroupBox("Alpaca Server Control", tab);
-    QGridLayout *controlLayout = new QGridLayout(controlGroup);
-    
-    // Port configuration
-    controlLayout->addWidget(new QLabel("Port:"), 0, 0);
-    alpacaPortSpinBox = new QSpinBox(controlGroup);
-    alpacaPortSpinBox->setRange(1024, 65535);
-    alpacaPortSpinBox->setValue(11111); // Default Alpaca port
-    controlLayout->addWidget(alpacaPortSpinBox, 0, 1);
-    
-    // Server name
-    controlLayout->addWidget(new QLabel("Server Name:"), 1, 0);
-    alpacaServerNameEdit = new QLineEdit("Celestron Origin Alpaca Server", controlGroup);
-    controlLayout->addWidget(alpacaServerNameEdit, 1, 1);
-    
-    // Auto-start option
-    alpacaAutoStartCheckBox = new QCheckBox("Auto-start server on application launch", controlGroup);
-    controlLayout->addWidget(alpacaAutoStartCheckBox, 2, 0, 1, 2);
-    
-    // Discovery broadcast option
-    alpacaDiscoveryCheckBox = new QCheckBox("Enable discovery broadcasts", controlGroup);
-    alpacaDiscoveryCheckBox->setChecked(true);
-    controlLayout->addWidget(alpacaDiscoveryCheckBox, 3, 0, 1, 2);
-    
-    // Control buttons
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    alpacaStartButton = new QPushButton("Start Server", controlGroup);
-    alpacaStopButton = new QPushButton("Stop Server", controlGroup);
-    alpacaStopButton->setEnabled(false);
-    
-    connect(alpacaStartButton, &QPushButton::clicked, this, &TelescopeGUI::startAlpacaServer);
-    connect(alpacaStopButton, &QPushButton::clicked, this, &TelescopeGUI::stopAlpacaServer);
-    
-    buttonLayout->addWidget(alpacaStartButton);
-    buttonLayout->addWidget(alpacaStopButton);
-    buttonLayout->addStretch();
-    
-    controlLayout->addLayout(buttonLayout, 4, 0, 1, 2);
-    
-    mainLayout->addWidget(controlGroup);
-    
-    // Status Section
-    QGroupBox *statusGroup = new QGroupBox("Server Status", tab);
-    QGridLayout *statusLayout = new QGridLayout(statusGroup);
-    
-    statusLayout->addWidget(new QLabel("Status:"), 0, 0);
-    alpacaStatusLabel = new QLabel("Stopped", statusGroup);
-    alpacaStatusLabel->setStyleSheet("color: red;");
-    statusLayout->addWidget(alpacaStatusLabel, 0, 1);
-    
-    statusLayout->addWidget(new QLabel("Port:"), 1, 0);
-    alpacaPortLabel = new QLabel("N/A", statusGroup);
-    statusLayout->addWidget(alpacaPortLabel, 1, 1);
-    
-    statusLayout->addWidget(new QLabel("Requests:"), 2, 0);
-    alpacaRequestCountLabel = new QLabel("0", statusGroup);
-    statusLayout->addWidget(alpacaRequestCountLabel, 2, 1);
-    
-    mainLayout->addWidget(statusGroup);
-    
-    // Connection Info Section
-    QGroupBox *connectionGroup = new QGroupBox("Connection Information", tab);
-    QVBoxLayout *connectionLayout = new QVBoxLayout(connectionGroup);
-    
-    QLabel *infoLabel = new QLabel(connectionGroup);
-    infoLabel->setText(
-        "<b>Alpaca API Endpoints:</b><br>"
-        "• Telescope: http://localhost:11111/api/v1/telescope/0/<br>"
-        "• Camera: http://localhost:11111/api/v1/camera/0/<br>"
-        "• Management: http://localhost:11111/management/v1/<br><br>"
-        
-        "<b>Compatible Software:</b><br>"
-        "• ASCOM Alpaca clients via bridge<br>"
-        "• SkySafari mobile app<br>"
-        "• Custom scripts using HTTP API<br>"
-        "• Web-based control interfaces<br><br>"
-        
-        "<b>Discovery:</b><br>"
-        "• Broadcasts on UDP port 32227<br>"
-        "• Compatible clients can auto-discover"
-    );
-    infoLabel->setWordWrap(true);
-    connectionLayout->addWidget(infoLabel);
-    
-    mainLayout->addWidget(connectionGroup);
-    
-    // Request Log Section
-    QGroupBox *logGroup = new QGroupBox("Request Log", tab);
-    QVBoxLayout *logLayout = new QVBoxLayout(logGroup);
-    
-    alpacaLogTextEdit = new QTextEdit(logGroup);
-    alpacaLogTextEdit->setMaximumHeight(200);
-    alpacaLogTextEdit->setFont(QFont("Monaco", 10)); // Monospace font
-    logLayout->addWidget(alpacaLogTextEdit);
-    
-    // Log control buttons
-    QHBoxLayout *logButtonLayout = new QHBoxLayout();
-    QPushButton *clearLogButton = new QPushButton("Clear Log", logGroup);
-    QPushButton *saveLogButton = new QPushButton("Save Log", logGroup);
-    
-    connect(clearLogButton, &QPushButton::clicked, this, &TelescopeGUI::clearAlpacaLog);
-    connect(saveLogButton, &QPushButton::clicked, this, &TelescopeGUI::saveAlpacaLog);
-    
-    logButtonLayout->addWidget(clearLogButton);
-    logButtonLayout->addWidget(saveLogButton);
-    logButtonLayout->addStretch();
-    
-    logLayout->addLayout(logButtonLayout);
-    
-    mainLayout->addWidget(logGroup);
-    
-    // Add stretch to push everything up
-    mainLayout->addStretch();
-    
-    return tab;
-}
-
-QWidget* TelescopeGUI::createCometTrackingTab()
-{
-    QWidget *tab = new QWidget();
-    QVBoxLayout *mainLayout = new QVBoxLayout(tab);
-    
-    // Comet selection
-    QGroupBox *cometGroup = new QGroupBox("Comet Selection", tab);
-    QFormLayout *cometLayout = new QFormLayout(cometGroup);
-    
-    cometNameEdit = new QLineEdit(cometGroup);
-    cometNameEdit->setText("1004054"); // Default C/2025 A6
-    cometLayout->addRow("Comet ID:", cometNameEdit);
-    
-    QPushButton *loadKernelsButton = new QPushButton("Load SPICE Kernels", cometGroup);
-    connect(loadKernelsButton, &QPushButton::clicked, this, &TelescopeGUI::loadCometKernels);
-    cometLayout->addRow(loadKernelsButton);
-    
-    mainLayout->addWidget(cometGroup);
-    
-    // Tracking controls
-    QGroupBox *trackingGroup = new QGroupBox("Tracking Control", tab);
-    QVBoxLayout *trackingLayout = new QVBoxLayout(trackingGroup);
-    
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    
-    startTrackingButton = new QPushButton("Start Tracking", trackingGroup);
-    connect(startTrackingButton, &QPushButton::clicked, this, &TelescopeGUI::startCometTracking);
-    buttonLayout->addWidget(startTrackingButton);
-    
-    stopTrackingButton = new QPushButton("Stop Tracking", trackingGroup);
-    stopTrackingButton->setEnabled(false);
-    connect(stopTrackingButton, &QPushButton::clicked, this, &TelescopeGUI::stopCometTracking);
-    buttonLayout->addWidget(stopTrackingButton);
-    
-    trackingLayout->addLayout(buttonLayout);
-    
-    // Update interval
-    QHBoxLayout *intervalLayout = new QHBoxLayout();
-    intervalLayout->addWidget(new QLabel("Update Interval (seconds):"));
-    updateIntervalSpinBox = new QSpinBox(trackingGroup);
-    updateIntervalSpinBox->setRange(10, 300);
-    updateIntervalSpinBox->setValue(30);
-    intervalLayout->addWidget(updateIntervalSpinBox);
-    trackingLayout->addLayout(intervalLayout);
-    
-    mainLayout->addWidget(trackingGroup);
-    
-    // Current position display
-    QGroupBox *positionGroup = new QGroupBox("Current Comet Position", tab);
-    QGridLayout *positionLayout = new QGridLayout(positionGroup);
-    
-    int row = 0;
-    positionLayout->addWidget(new QLabel("RA:"), row, 0);
-    cometRaLabel = new QLabel("-", positionGroup);
-    positionLayout->addWidget(cometRaLabel, row++, 1);
-    
-    positionLayout->addWidget(new QLabel("Dec:"), row, 0);
-    cometDecLabel = new QLabel("-", positionGroup);
-    positionLayout->addWidget(cometDecLabel, row++, 1);
-    
-    positionLayout->addWidget(new QLabel("Altitude:"), row, 0);
-    cometAltLabel = new QLabel("-", positionGroup);
-    positionLayout->addWidget(cometAltLabel, row++, 1);
-    
-    positionLayout->addWidget(new QLabel("Azimuth:"), row, 0);
-    cometAzLabel = new QLabel("-", positionGroup);
-    positionLayout->addWidget(cometAzLabel, row++, 1);
-    
-    positionLayout->addWidget(new QLabel("Observable:"), row, 0);
-    cometObservableLabel = new QLabel("-", positionGroup);
-    positionLayout->addWidget(cometObservableLabel, row++, 1);
-    
-    mainLayout->addWidget(positionGroup);
-    
-    mainLayout->addStretch();
-    
-    return tab;
-}
-
-// Add these slot implementations to TelescopeGUI.cpp:
-
-void TelescopeGUI::startAlpacaServer()
-{
-    int port = alpacaPortSpinBox->value();
-    
-    alpacaLogTextEdit->append(QString("[%1] Starting Alpaca server on port %2...")
-                             .arg(QTime::currentTime().toString())
-                             .arg(port));
-    
-    if (alpacaServer->start(port)) {
-        alpacaLogTextEdit->append(QString("[%1] Server started successfully")
-                                 .arg(QTime::currentTime().toString()));
-    } else {
-        alpacaLogTextEdit->append(QString("[%1] Failed to start server")
-                                 .arg(QTime::currentTime().toString()));
-    }
-}
-
-void TelescopeGUI::stopAlpacaServer()
-{
-    alpacaLogTextEdit->append(QString("[%1] Stopping Alpaca server...")
-                             .arg(QTime::currentTime().toString()));
-    
-    alpacaServer->stop();
-    
-    alpacaLogTextEdit->append(QString("[%1] Server stopped")
-                             .arg(QTime::currentTime().toString()));
-}
-
-void TelescopeGUI::onAlpacaServerStarted()
-{
-    alpacaStatusLabel->setText("Running");
-    alpacaStatusLabel->setStyleSheet("color: green;");
-    alpacaPortLabel->setText(QString::number(alpacaPortSpinBox->value()));
-    
-    alpacaStartButton->setEnabled(false);
-    alpacaStopButton->setEnabled(true);
-    alpacaPortSpinBox->setEnabled(false);
-    
-    alpacaLogTextEdit->append(QString("[%1] Alpaca server is now accepting connections")
-                             .arg(QTime::currentTime().toString()));
-    alpacaLogTextEdit->append(QString("[%1] Discovery broadcasts enabled on UDP port 32227")
-                             .arg(QTime::currentTime().toString()));
-}
-
-void TelescopeGUI::onAlpacaServerStopped()
-{
-    alpacaStatusLabel->setText("Stopped");
-    alpacaStatusLabel->setStyleSheet("color: red;");
-    alpacaPortLabel->setText("N/A");
-    
-    alpacaStartButton->setEnabled(true);
-    alpacaStopButton->setEnabled(false);
-    alpacaPortSpinBox->setEnabled(true);
-}
-
-void TelescopeGUI::onAlpacaRequestReceived(const QString& method, const QString& path)
-{
-    static int requestCount = 0;
-    requestCount++;
-    
-    alpacaRequestCountLabel->setText(QString::number(requestCount));
-    
-    // Add to log with timestamp
-    alpacaLogTextEdit->append(QString("[%1] %2 %3")
-                             .arg(QTime::currentTime().toString())
-                             .arg(method)
-                             .arg(path));
-    
-    // Auto-scroll to bottom
-    alpacaLogTextEdit->verticalScrollBar()->setValue(
-        alpacaLogTextEdit->verticalScrollBar()->maximum());
-
-    qDebug() << requestCount << method << path;
-}
-
-void TelescopeGUI::clearAlpacaLog()
-{
-    alpacaLogTextEdit->clear();
-    alpacaRequestCountLabel->setText("0");
-}
-
-void TelescopeGUI::saveAlpacaLog()
-{
-    QString fileName = QFileDialog::getSaveFileName(this,
-        "Save Alpaca Log", 
-        QString("alpaca_log_%1.txt").arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss")),
-        "Text Files (*.txt)");
-    
-    if (!fileName.isEmpty()) {
-        QFile file(fileName);
-        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextStream out(&file);
-            out << alpacaLogTextEdit->toPlainText();
-            
-            alpacaLogTextEdit->append(QString("[%1] Log saved to %2")
-                                     .arg(QTime::currentTime().toString())
-                                     .arg(fileName));
-        }
-    }
-}
-
 void TelescopeGUI::startSlewAndImage() {
-    if (!isConnected) {
+  if (!originBackend->isConnected()) {
         QMessageBox::warning(this, "Not Connected", "Please connect to a telescope first");
         return;
     }
@@ -2027,7 +1489,7 @@ void TelescopeGUI::cancelSlewAndImage() {
 }
 
 void TelescopeGUI::initializeTelescope() {
-    if (!isConnected) {
+  if (!originBackend->isConnected()) {
         QMessageBox::warning(this, "Not Connected", "Please connect to a telescope first");
         return;
     }
@@ -2061,7 +1523,7 @@ void TelescopeGUI::initializeTelescope() {
 }
 
 void TelescopeGUI::startTelescopeAlignment() {
-    if (!isConnected) {
+  if (!originBackend->isConnected()) {
         QMessageBox::warning(this, "Not Connected", "Please connect to a telescope first");
         return;
     }
@@ -2078,7 +1540,7 @@ void TelescopeGUI::startTelescopeAlignment() {
 }
 
 void TelescopeGUI::checkMountStatus() {
-    if (!isConnected) {
+  if (!originBackend->isConnected()) {
         alignmentStatusLabel->setText("Not connected");
         mountStatusLabel->setText("Not connected");
         return;
@@ -2107,32 +1569,6 @@ void TelescopeGUI::checkMountStatus() {
     // Enable/disable slewing based on status
     bool canSlew = data.mount.isAligned && data.mount.isGotoOver;
     startSlewButton->setEnabled(canSlew && !isSlewingAndImaging);
-}
-
-// TelescopeGUI.cpp additions
-void TelescopeGUI::loadCometKernels()
-{
-    QString kernelDir = QFileDialog::getExistingDirectory(this, 
-        "Select SPICE Kernel Directory");
-    
-    if (kernelDir.isEmpty()) return;
-    
-    if (cometTracker->loadCometData(
-        kernelDir + "/c2025a6.bsp",
-        kernelDir + "/naif0012.tls",
-        kernelDir + "/de440s.bsp"))
-    {
-        // Set observer location (Cambridge, UK)
-        ObserverLocation loc;
-        loc.latitude = 52.2053;
-        loc.longitude = 0.1218;
-        loc.elevation = 20.0;
-        cometTracker->setObserverLocation(loc);
-        
-        QMessageBox::information(this, "Success", "SPICE kernels loaded successfully");
-    } else {
-        QMessageBox::warning(this, "Error", "Failed to load SPICE kernels");
-    }
 }
 
 static const int SLEW_RATE = 9;
@@ -2186,38 +1622,6 @@ void TelescopeGUI::startRightButton()
     
     slew(0, SLEW_RATE);  // Positive for right (clockwise)
     cancelSlew();
-}
-
-void TelescopeGUI::startCometTracking()
-{
-    QString cometName = cometNameEdit->text().trimmed();
-    if (cometName.isEmpty()) {
-        QMessageBox::warning(this, "Error", "Please enter a comet ID");
-        return;
-    }
-    
-    cometTracker->setCometName(cometName);
-    cometTracker->startTracking(updateIntervalSpinBox->value());
-    
-    startTrackingButton->setEnabled(false);
-    stopTrackingButton->setEnabled(true);
-}
-
-void TelescopeGUI::stopCometTracking()
-{
-    cometTracker->stopTracking();
-    
-    startTrackingButton->setEnabled(true);
-    stopTrackingButton->setEnabled(false);
-}
-
-void TelescopeGUI::onCometPositionUpdated(const SkyPosition& pos)
-{
-    cometRaLabel->setText(QString::number(pos.ra, 'f', 6) + " hours");
-    cometDecLabel->setText(QString::number(pos.dec, 'f', 6) + "°");
-    cometAltLabel->setText(QString::number(pos.alt, 'f', 2) + "°");
-    cometAzLabel->setText(QString::number(pos.az, 'f', 2) + "°");
-    cometObservableLabel->setText(pos.isObservable ? "Yes" : "No");
 }
 
 void TelescopeGUI::onTrackingError(const QString& error)

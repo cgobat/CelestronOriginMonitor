@@ -1,6 +1,5 @@
 #pragma once
 
-class AlpacaServer;
 class OriginBackend;
 
 #include <QMainWindow>
@@ -35,8 +34,6 @@ class OriginBackend;
 
 #include "TelescopeDataProcessor.hpp"
 #include "CommandInterface.hpp"
-#include "AutoDownloader.hpp"
-#include "CometTracker.hpp"
 
 /**
  * @brief Main application window for the telescope monitor
@@ -53,16 +50,12 @@ public:
     OriginBackend* originBackend;
     
 private slots:
-    void loadCometKernels();
     void startUpButton();
     void startDownButton();
     void startLeftButton();
     void startRightButton();
     void slew(int ,int);
     void cancelSlew();
-    void startCometTracking();
-    void stopCometTracking();
-    void onCometPositionUpdated(const SkyPosition& pos);
     void onTrackingError(const QString& error);
     void onSlewCancel(); // cancel slew after delay
     /**
@@ -140,56 +133,6 @@ private slots:
      * @brief Update the time display
      */
     void updateTimeDisplay();
-    /**
-     * @brief Start automatic download of observations
-     */
-    void startAutomaticDownload();
-    
-    /**
-     * @brief Stop automatic download of observations
-     */
-    void stopAutomaticDownload();
-    
-    /**
-     * @brief Update download progress
-     * @param currentFile The current file being downloaded
-     * @param filesCompleted The number of files completed
-     * @param totalFiles The total number of files to download
-     * @param bytesReceived The number of bytes received for the current file
-     * @param bytesTotal The total number of bytes for the current file
-     */
-    void updateDownloadProgress(const QString &currentFile, int filesCompleted, 
-                              int totalFiles, qint64 bytesReceived, qint64 bytesTotal);
-    
-    /**
-     * @brief Handle when a directory download starts
-     * @param directory The name of the directory
-     */
-    void onDirectoryDownloadStarted(const QString &directory);
-    
-    /**
-     * @brief Handle when a file download starts
-     * @param fileName The name of the file
-     */
-    void onFileDownloadStarted(const QString &fileName);
-    
-    /**
-     * @brief Handle when a file has been downloaded
-     * @param fileName The name of the file
-     * @param success Whether the download was successful
-     */
-    void onFileDownloaded(const QString &fileName, bool success);
-    
-    /**
-     * @brief Handle when a directory has been downloaded
-     * @param directory The name of the directory
-     */
-    void onDirectoryDownloaded(const QString &directory);
-    
-    /**
-     * @brief Handle when all downloads are complete
-     */
-    void onAllDownloadsComplete();
 
     void startSlewAndImage();
     void cancelSlewAndImage();
@@ -199,13 +142,6 @@ private slots:
     void startTelescopeAlignment();
     void checkMountStatus();
 
-    void startAlpacaServer();
-    void stopAlpacaServer();
-    void onAlpacaServerStarted();
-    void onAlpacaServerStopped();
-    void onAlpacaRequestReceived(const QString& method, const QString& path);
-    void clearAlpacaLog();
-    void saveAlpacaLog();
     // snaphot camera slots
     void onCameraModeChanged(bool isManual);
     void onCaptureParametersChanged(double exposure, int iso);
@@ -215,7 +151,6 @@ private slots:
 
 private:
 // TelescopeGUI.hpp additions
-    CometTracker* cometTracker;
     
     // UI elements
     QLineEdit* cometNameEdit;
@@ -272,9 +207,7 @@ private:
     QWidget* createDiskTab();
     QWidget* createDewHeaterTab();
     QWidget* createCommandTab();
-    QWidget* createDownloadTab();
     QWidget* createSlewAndImageTab();
-    QWidget* createCometTrackingTab();
   
     // Class members
     TelescopeDataProcessor *dataProcessor;
@@ -288,7 +221,6 @@ private:
     // State variables
     QStringList telescopeAddresses;
     QString connectedIpAddress;
-    bool isConnected = false;
     
     // Mount tab widgets
     QLabel *mountBatteryCurrentLabel;
@@ -373,20 +305,6 @@ private:
     QProgressBar *dewHeaterLevelBar;
     QLabel *dewHeaterLastUpdateLabel;
     
-   // Download tab widgets
-    QLineEdit *downloadPathEdit;
-    QPushButton *browseButton;
-    QPushButton *startDownloadButton;
-    QPushButton *stopDownloadButton;
-    QProgressBar *overallProgressBar;
-    QProgressBar *currentFileProgressBar;
-    QLabel *currentFileLabel;
-    QListWidget *downloadLogList;
-    
-    // Auto downloader
-    AutoDownloader *autoDownloader;
-    bool isDownloading = false;
-
     // Add more private members for the new tab
     QComboBox *targetComboBox;
     QLineEdit *customRaEdit;
@@ -409,23 +327,6 @@ private:
     QPushButton *initializeButton;
     QPushButton *autoAlignButton;
 
-    // NEW: Alpaca server integration
-    AlpacaServer* alpacaServer;
-    
-    // Alpaca tab widgets
-    QPushButton* alpacaStartButton;
-    QPushButton* alpacaStopButton;
-    QLabel* alpacaStatusLabel;
-    QLabel* alpacaPortLabel;
-    QSpinBox* alpacaPortSpinBox;
-    QLineEdit* alpacaServerNameEdit;
-    QTextEdit* alpacaLogTextEdit;
-    QLabel* alpacaRequestCountLabel;
-    QCheckBox* alpacaAutoStartCheckBox;
-    QCheckBox* alpacaDiscoveryCheckBox;
-
-    QWidget* createAlpacaTab();
-    
     bool debug = false;
 
   

@@ -893,7 +893,7 @@ void OriginBackend::logWebSocketMessage(const QString& direction, const QString&
     m_logStream->flush();
     
     // Also output to console for immediate viewing
-    //    qDebug() << "WS" << direction << ":" << message;
+    //       qDebug() << "WS" << direction << ":" << message;
 }
 
 // Add this method to OriginBackend.cpp:
