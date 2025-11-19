@@ -13,19 +13,13 @@ RCC_DIR = build/rcc
 UI_DIR = build/ui
 
 # macOS specific settings
-CONFIG += app_bundle
-QMAKE_MACOSX_DEPLOYMENT_TARGET = 13.0  # Updated to match your existing setting
+CONFIG += app_bundle sdk_no_version_check
 QMAKE_INFO_PLIST = Info.plist
-QMAKE_LFLAGS += -Wl,--allow-multiple-definition
+# QMAKE_LFLAGS += -Wl,--allow-multiple-definition
 
 # Include path
 INCLUDEPATH += .
-LIBS += -lnova
-INCLUDEPATH += /opt/homebrew/include ../naif/cspice/include
-
-# CSPICE (adjust paths to where you extracted it)
-INCLUDEPATH += /path/to/cspice/include
-LIBS += ../naif/cspice/lib/cspice.a
+INCLUDEPATH += /opt/homebrew/include
 
 # Enable modern C++ features
 CONFIG += c++17
@@ -36,8 +30,6 @@ QT += core widgets network websockets
 # Original source files
 SOURCES += \
     main.cpp \
-    TelescopeDataProcessor.cpp \
-    TelescopeGUI.cpp \
     CoordinateUtils.cpp \
     TelescopeDataProcessor.cpp \
     TelescopeGUI.cpp \
@@ -45,9 +37,6 @@ SOURCES += \
 
 # Original header files
 HEADERS += \
-    TelescopeData.hpp \
-    TelescopeDataProcessor.hpp \
-    TelescopeGUI.hpp \
     CoordinateUtils.hpp \
     MessierCatalog.hpp \
     TelescopeData.hpp \
@@ -69,15 +58,14 @@ macx {
     QMAKE_LFLAGS += -Wl,-rpath,@executable_path/../Frameworks
     
     # For XCode build
-    CONFIG += debug_and_release build_all relative_qt_rpath
+    CONFIG += build_all relative_qt_rpath
     
     # Bundle identifier
     QMAKE_TARGET_BUNDLE_PREFIX = com.yourdomain
     QMAKE_BUNDLE = CelestronOriginMonitor
     
     # Deployment target
-    QMAKE_MACOSX_DEPLOYMENT_TARGET = 13.0
-    QMAKE_LFLAGS += -Wl,-rpath,@executable_path/../Frameworks
+    QMAKE_MACOSX_DEPLOYMENT_TARGET = 15.0
 }
 
 # Post-build deployment
