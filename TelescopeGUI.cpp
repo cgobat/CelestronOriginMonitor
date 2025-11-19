@@ -481,6 +481,38 @@ QWidget* TelescopeGUI::createTaskControllerTab() {
     QWidget *tab = new QWidget();
     QVBoxLayout *mainLayout = new QVBoxLayout(tab);
     
+    // Initialize section
+    QGroupBox *initstatusGroup = new QGroupBox("Telescope Initialization", tab);
+    QVBoxLayout *initvboxLayout = new QVBoxLayout(initstatusGroup);
+    
+    // Status display
+    QHBoxLayout *initstatusLayout = new QHBoxLayout();
+    initstatusLayout->addWidget(new QLabel("Alignment Status:"));
+    alignmentStatusLabel = new QLabel("Unknown", initstatusGroup);
+    initstatusLayout->addWidget(alignmentStatusLabel);
+    
+    initstatusLayout->addWidget(new QLabel("Mount Status:"));
+    mountStatusLabel = new QLabel("Unknown", initstatusGroup);
+    initstatusLayout->addWidget(mountStatusLabel);
+    
+    initvboxLayout->addLayout(initstatusLayout);
+    
+    // Initialization button
+    QHBoxLayout *initButtonLayout = new QHBoxLayout();
+    initializeButton = new QPushButton("Initialize Telescope", initstatusGroup);
+    connect(initializeButton, &QPushButton::clicked, this, &TelescopeGUI::initializeTelescope);
+    initButtonLayout->addWidget(initializeButton);
+    /*    
+    // Auto align button (if needed later)
+    autoAlignButton = new QPushButton("Start Alignment (if needed)", initstatusGroup);
+    connect(autoAlignButton, &QPushButton::clicked, this, &TelescopeGUI::startTelescopeAlignment);
+    autoAlignButton->setEnabled(false); // Disabled initially
+    initButtonLayout->addWidget(autoAlignButton);
+    */
+    initvboxLayout->addLayout(initButtonLayout);
+    
+    mainLayout->addWidget(initstatusGroup);
+    
     // Overall Status Group
     QGroupBox *statusGroup = new QGroupBox("Overall Status", tab);
     QGridLayout *statusLayout = new QGridLayout(statusGroup);
@@ -1354,38 +1386,6 @@ void TelescopeGUI::updateLastUpdateLabel(QLabel *label, const QDateTime &lastUpd
 QWidget* TelescopeGUI::createSlewAndImageTab() {
     QWidget *tab = new QWidget();
     QVBoxLayout *mainLayout = new QVBoxLayout(tab);
-    
-    // Initialize section
-    QGroupBox *initGroup = new QGroupBox("Telescope Initialization", tab);
-    QVBoxLayout *initLayout = new QVBoxLayout(initGroup);
-    
-    // Status display
-    QHBoxLayout *statusLayout = new QHBoxLayout();
-    statusLayout->addWidget(new QLabel("Alignment Status:"));
-    alignmentStatusLabel = new QLabel("Unknown", initGroup);
-    statusLayout->addWidget(alignmentStatusLabel);
-    
-    statusLayout->addWidget(new QLabel("Mount Status:"));
-    mountStatusLabel = new QLabel("Unknown", initGroup);
-    statusLayout->addWidget(mountStatusLabel);
-    
-    initLayout->addLayout(statusLayout);
-    
-    // Initialization button
-    QHBoxLayout *initButtonLayout = new QHBoxLayout();
-    initializeButton = new QPushButton("Initialize Telescope", initGroup);
-    connect(initializeButton, &QPushButton::clicked, this, &TelescopeGUI::initializeTelescope);
-    initButtonLayout->addWidget(initializeButton);
-    
-    // Auto align button (if needed later)
-    autoAlignButton = new QPushButton("Start Alignment (if needed)", initGroup);
-    connect(autoAlignButton, &QPushButton::clicked, this, &TelescopeGUI::startTelescopeAlignment);
-    autoAlignButton->setEnabled(false); // Disabled initially
-    initButtonLayout->addWidget(autoAlignButton);
-    
-    initLayout->addLayout(initButtonLayout);
-    
-    mainLayout->addWidget(initGroup);
     
     // Target selection section (existing code)
     QGroupBox *targetGroup = new QGroupBox("Target Selection", tab);

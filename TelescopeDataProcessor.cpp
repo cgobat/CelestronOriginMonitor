@@ -25,7 +25,7 @@ bool TelescopeDataProcessor::processJsonPacket(const QByteArray &jsonData) {
     QString command = obj["Command"].toString();
     QString type = obj["Type"].toString();
     
-    // Only process notifications
+    // Only process notifications and responses
     if (type != "Notification" && type != "Response") {
         qDebug() << "Ignoring non-notification packet";
         return false;
@@ -63,6 +63,10 @@ bool TelescopeDataProcessor::processJsonPacket(const QByteArray &jsonData) {
     else if (source == "OrientationSensor") {
         updateOrientationStatus(obj);
         emit orientationStatusUpdated();
+    }
+    else if (source == "TaskController") {  // ADD THIS BLOCK
+        updateTaskControllerStatus(obj);
+        emit taskControllerStatusUpdated();
     }
     
     return true;
@@ -173,3 +177,41 @@ void TelescopeDataProcessor::updateOrientationStatus(const QJsonObject &obj) {
     
     telescopeData.orientationLastUpdate = QDateTime::currentDateTime();
 }
+
+void TelescopeDataProcessor::updateTaskControllerStatus(const QJsonObject &obj) {
+    // Basic state info
+    telescopeData.taskController.state = obj["State"].toString();
+    telescopeData.taskController.stage = obj["Stage"].toString();
+    telescopeData.taskController.isReady = obj["IsReady"].toBool();
+    
+    // Check for InitializationInfo
+    if (obj.contains("InitializationInfo")) {
+        QJsonObject initInfo = obj["InitializationInfo"].toObject();
+        telescopeData.taskController.currentStep = initInfo["CurrentStep"].toString();
+        telescopeData.taskController.numPoints = initInfo["NumPoints"].toInt();
+        telescopeData.taskController.percentageComplete = initInfo["PercentageComplete"].toInt();
+    } else {
+        // Clear initialization info if not present
+        telescopeData.taskController.currentStep = "";
+        telescopeData.taskController.numPoints = 0;
+        telescopeData.taskController.percentageComplete = 0;
+    }
+    
+    // Check for FocusInfo
+    if (obj.contains("FocusInfo")) {
+        QJsonObject focusInfo = obj["FocusInfo"].toObject();
+        telescopeData.taskController.focusPosition = focusInfo["Position"].toInt();
+        telescopeData.taskController.focusPercentageComplete = focusInfo["PercentageComplete"].toInt();
+    } else {
+        telescopeData.taskController.focusPosition = 0;
+        telescopeData.taskController.focusPercentageComplete = 0;
+    }
+    
+    // Check for imaging session name
+    if (obj.contains("ImagingName")) {
+        telescopeData.taskController.imagingName = obj["ImagingName"].toString();
+    }
+    
+    telescopeData.taskControllerLastUpdate = QDateTime::currentDateTime();
+}
+
