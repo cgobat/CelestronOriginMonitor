@@ -502,13 +502,6 @@ QWidget* TelescopeGUI::createTaskControllerTab() {
     initializeButton = new QPushButton("Initialize Telescope", initstatusGroup);
     connect(initializeButton, &QPushButton::clicked, this, &TelescopeGUI::initializeTelescope);
     initButtonLayout->addWidget(initializeButton);
-    /*    
-    // Auto align button (if needed later)
-    autoAlignButton = new QPushButton("Start Alignment (if needed)", initstatusGroup);
-    connect(autoAlignButton, &QPushButton::clicked, this, &TelescopeGUI::startTelescopeAlignment);
-    autoAlignButton->setEnabled(false); // Disabled initially
-    initButtonLayout->addWidget(autoAlignButton);
-    */
     initvboxLayout->addLayout(initButtonLayout);
     
     mainLayout->addWidget(initstatusGroup);
@@ -1708,13 +1701,6 @@ void TelescopeGUI::initializeTelescope() {
     
     slewStatusLabel->setText("Initializing telescope...");
     initializeButton->setEnabled(false);
-    
-    // Enable the alignment button after initialization
-    QTimer::singleShot(5000, this, [this]() {
-        autoAlignButton->setEnabled(true);
-        initializeButton->setEnabled(true);
-        slewStatusLabel->setText("Initialization completed. Check alignment status.");
-    });
 }
 
 void TelescopeGUI::startTelescopeAlignment() {

@@ -23,6 +23,7 @@ INCLUDEPATH += /opt/homebrew/include
 
 # Enable modern C++ features
 CONFIG += c++17
+QMAKE_CXXFLAGS += -g
 
 # Qt modules
 QT += core widgets network websockets

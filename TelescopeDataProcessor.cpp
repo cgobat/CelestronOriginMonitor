@@ -190,6 +190,7 @@ void TelescopeDataProcessor::updateTaskControllerStatus(const QJsonObject &obj) 
         telescopeData.taskController.currentStep = initInfo["CurrentStep"].toString();
         telescopeData.taskController.numPoints = initInfo["NumPoints"].toInt();
         telescopeData.taskController.percentageComplete = initInfo["PercentageComplete"].toInt();
+	qDebug() << "InitInfo" << telescopeData.taskController.percentageComplete;
     } else {
         // Clear initialization info if not present
         telescopeData.taskController.currentStep = "";

@@ -340,7 +340,6 @@ private:
     QLabel *alignmentStatusLabel;
     QLabel *mountStatusLabel;
     QPushButton *initializeButton;
-    QPushButton *autoAlignButton;
 
     bool debug = false;
     LogReplayDialog* m_logReplayDialog;
