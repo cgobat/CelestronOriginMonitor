@@ -30,10 +30,12 @@ class OriginBackend;
 #include <QTextEdit>
 #include <QCheckBox>
 #include <QScrollBar>
+#include <QMenuBar>
 #include <QFileDialog>
 
 #include "TelescopeDataProcessor.hpp"
 #include "CommandInterface.hpp"
+#include "LogReplayDialog.hpp"
 
 /**
  * @brief Main application window for the telescope monitor
@@ -50,6 +52,8 @@ public:
     OriginBackend* originBackend;
     
 private slots:
+    void showLogReplay();
+    void updateTaskControllerDisplay();
     void startUpButton();
     void startDownButton();
     void startLeftButton();
@@ -150,8 +154,18 @@ private slots:
     void onSnapshotDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
 
 private:
-// TelescopeGUI.hpp additions
-    
+    // Task Controller tab widgets
+    QLabel *taskStateLabel;
+    QLabel *taskStageLabel;
+    QLabel *taskReadyLabel;
+    QLabel *taskCurrentStepLabel;
+    QLabel *taskNumPointsLabel;
+    QProgressBar *taskProgressBar;
+    QLabel *taskFocusPositionLabel;
+    QProgressBar *taskFocusProgressBar;
+    QLabel *taskImagingNameLabel;
+    QLabel *taskLastUpdateLabel;
+
     // UI elements
     QLineEdit* cometNameEdit;
     QPushButton* startTrackingButton;
@@ -208,6 +222,7 @@ private:
     QWidget* createDewHeaterTab();
     QWidget* createCommandTab();
     QWidget* createSlewAndImageTab();
+    QWidget* createTaskControllerTab();
   
     // Class members
     TelescopeDataProcessor *dataProcessor;
@@ -328,6 +343,7 @@ private:
     QPushButton *autoAlignButton;
 
     bool debug = false;
+    LogReplayDialog* m_logReplayDialog;
 
   
 };

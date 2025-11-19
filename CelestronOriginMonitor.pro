@@ -34,6 +34,7 @@ SOURCES += \
     TelescopeDataProcessor.cpp \
     TelescopeGUI.cpp \
     OriginBackend.cpp \
+    LogReplayDialog.cpp \
 
 # Original header files
 HEADERS += \
@@ -43,7 +44,8 @@ HEADERS += \
     TelescopeDataProcessor.hpp \
     TelescopeGUI.hpp \
     OriginBackend.hpp \
-
+    LogReplayDialog.hpp \
+    
 # Default rules
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin

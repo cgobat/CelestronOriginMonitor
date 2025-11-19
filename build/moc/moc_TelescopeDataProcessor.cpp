@@ -47,7 +47,8 @@ template <> constexpr inline auto TelescopeDataProcessor::qt_create_metaobjectda
         "newImageAvailable",
         "diskStatusUpdated",
         "dewHeaterStatusUpdated",
-        "orientationStatusUpdated"
+        "orientationStatusUpdated",
+        "taskControllerStatusUpdated"
     };
 
     QtMocHelpers::UintData qt_methods {
@@ -67,6 +68,8 @@ template <> constexpr inline auto TelescopeDataProcessor::qt_create_metaobjectda
         QtMocHelpers::SignalData<void()>(8, 2, QMC::AccessPublic, QMetaType::Void),
         // Signal 'orientationStatusUpdated'
         QtMocHelpers::SignalData<void()>(9, 2, QMC::AccessPublic, QMetaType::Void),
+        // Signal 'taskControllerStatusUpdated'
+        QtMocHelpers::SignalData<void()>(10, 2, QMC::AccessPublic, QMetaType::Void),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -98,6 +101,7 @@ void TelescopeDataProcessor::qt_static_metacall(QObject *_o, QMetaObject::Call _
         case 5: _t->diskStatusUpdated(); break;
         case 6: _t->dewHeaterStatusUpdated(); break;
         case 7: _t->orientationStatusUpdated(); break;
+        case 8: _t->taskControllerStatusUpdated(); break;
         default: ;
         }
     }
@@ -117,6 +121,8 @@ void TelescopeDataProcessor::qt_static_metacall(QObject *_o, QMetaObject::Call _
         if (QtMocHelpers::indexOfMethod<void (TelescopeDataProcessor::*)()>(_a, &TelescopeDataProcessor::dewHeaterStatusUpdated, 6))
             return;
         if (QtMocHelpers::indexOfMethod<void (TelescopeDataProcessor::*)()>(_a, &TelescopeDataProcessor::orientationStatusUpdated, 7))
+            return;
+        if (QtMocHelpers::indexOfMethod<void (TelescopeDataProcessor::*)()>(_a, &TelescopeDataProcessor::taskControllerStatusUpdated, 8))
             return;
     }
 }
@@ -140,14 +146,14 @@ int TelescopeDataProcessor::qt_metacall(QMetaObject::Call _c, int _id, void **_a
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 8)
+        if (_id < 9)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 8;
+        _id -= 9;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 8)
+        if (_id < 9)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 8;
+        _id -= 9;
     }
     return _id;
 }
@@ -198,5 +204,11 @@ void TelescopeDataProcessor::dewHeaterStatusUpdated()
 void TelescopeDataProcessor::orientationStatusUpdated()
 {
     QMetaObject::activate(this, &staticMetaObject, 7, nullptr);
+}
+
+// SIGNAL 8
+void TelescopeDataProcessor::taskControllerStatusUpdated()
+{
+    QMetaObject::activate(this, &staticMetaObject, 8, nullptr);
 }
 QT_WARNING_POP

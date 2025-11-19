@@ -64,6 +64,9 @@ signals:
     /** Signal emitted when orientation status is updated */
     void orientationStatusUpdated();
     
+    /** Signal emitted when orientation status is updated */
+    void taskControllerStatusUpdated();
+    
 private:
     /** The telescope data */
     TelescopeData telescopeData;

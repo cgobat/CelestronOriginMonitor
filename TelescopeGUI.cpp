@@ -22,6 +22,7 @@ TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent) {
     originBackend = new OriginBackend(this);
     
     setupUI();
+    m_logReplayDialog = nullptr;
     setupDiscovery();
     
     // Update time display every second
@@ -133,6 +134,13 @@ TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent) {
 		    qWarning() << "Error:" << file.errorString();
 		}
 	    });    
+// ============================================================================
+// Add to TelescopeGUI.cpp constructor - Connect the signal
+// ============================================================================
+
+// In TelescopeGUI constructor, after other signal connections:
+connect(dataProcessor, &TelescopeDataProcessor::taskControllerStatusUpdated, 
+        this, &TelescopeGUI::updateTaskControllerDisplay);
 }
 
 void TelescopeGUI::startDiscovery() {
@@ -406,6 +414,17 @@ void TelescopeGUI::updateTimeDisplay() {
 }
 
 void TelescopeGUI::setupUI() {
+    QMenuBar* menuBar = new QMenuBar(this);
+    setMenuBar(menuBar);
+    
+    // Tools menu
+    QMenu* toolsMenu = menuBar->addMenu("Tools");
+    
+    QAction* replayLogsAction = new QAction("Replay WebSocket Logs...", this);
+    replayLogsAction->setShortcut(QKeySequence("Ctrl+R"));
+    connect(replayLogsAction, &QAction::triggered, this, &TelescopeGUI::showLogReplay);
+    toolsMenu->addAction(replayLogsAction);
+  
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
     
@@ -449,8 +468,184 @@ void TelescopeGUI::setupUI() {
     tabWidget->addTab(createDiskTab(), "Disk");
     tabWidget->addTab(createDewHeaterTab(), "Dew Heater");
     tabWidget->addTab(createSlewAndImageTab(), "Slew & Image");   
+    tabWidget->addTab(createTaskControllerTab(), "Task Controller");   
     
     mainLayout->addWidget(tabWidget);
+}
+
+// ============================================================================
+// Add to TelescopeGUI.cpp - Create the tab
+// ============================================================================
+
+QWidget* TelescopeGUI::createTaskControllerTab() {
+    QWidget *tab = new QWidget();
+    QVBoxLayout *mainLayout = new QVBoxLayout(tab);
+    
+    // Overall Status Group
+    QGroupBox *statusGroup = new QGroupBox("Overall Status", tab);
+    QGridLayout *statusLayout = new QGridLayout(statusGroup);
+    
+    int row = 0;
+    
+    statusLayout->addWidget(new QLabel("State:"), row, 0);
+    taskStateLabel = new QLabel("-", statusGroup);
+    taskStateLabel->setFont(QFont("Arial", 12, QFont::Bold));
+    statusLayout->addWidget(taskStateLabel, row++, 1);
+    
+    statusLayout->addWidget(new QLabel("Stage:"), row, 0);
+    taskStageLabel = new QLabel("-", statusGroup);
+    statusLayout->addWidget(taskStageLabel, row++, 1);
+    
+    statusLayout->addWidget(new QLabel("Ready:"), row, 0);
+    taskReadyLabel = new QLabel("-", statusGroup);
+    taskReadyLabel->setFont(QFont("Arial", 10, QFont::Bold));
+    statusLayout->addWidget(taskReadyLabel, row++, 1);
+    
+    mainLayout->addWidget(statusGroup);
+    
+    // Initialization Group
+    QGroupBox *initGroup = new QGroupBox("Initialization Progress", tab);
+    QGridLayout *initLayout = new QGridLayout(initGroup);
+    
+    row = 0;
+    
+    initLayout->addWidget(new QLabel("Current Step:"), row, 0);
+    taskCurrentStepLabel = new QLabel("-", initGroup);
+    taskCurrentStepLabel->setFont(QFont("Arial", 11, QFont::Bold));
+    initLayout->addWidget(taskCurrentStepLabel, row++, 1);
+    
+    initLayout->addWidget(new QLabel("Alignment Points:"), row, 0);
+    taskNumPointsLabel = new QLabel("-", initGroup);
+    initLayout->addWidget(taskNumPointsLabel, row++, 1);
+    
+    initLayout->addWidget(new QLabel("Progress:"), row, 0);
+    taskProgressBar = new QProgressBar(initGroup);
+    taskProgressBar->setRange(0, 100);
+    taskProgressBar->setValue(0);
+    taskProgressBar->setTextVisible(true);
+    taskProgressBar->setFormat("%p% complete");
+    initLayout->addWidget(taskProgressBar, row++, 1);
+    
+    mainLayout->addWidget(initGroup);
+    
+    // Focus Group
+    QGroupBox *focusGroup = new QGroupBox("Focus Progress", tab);
+    QGridLayout *focusLayout = new QGridLayout(focusGroup);
+    
+    row = 0;
+    
+    focusLayout->addWidget(new QLabel("Focuser Position:"), row, 0);
+    taskFocusPositionLabel = new QLabel("-", focusGroup);
+    focusLayout->addWidget(taskFocusPositionLabel, row++, 1);
+    
+    focusLayout->addWidget(new QLabel("Focus Progress:"), row, 0);
+    taskFocusProgressBar = new QProgressBar(focusGroup);
+    taskFocusProgressBar->setRange(0, 100);
+    taskFocusProgressBar->setValue(0);
+    taskFocusProgressBar->setTextVisible(true);
+    focusLayout->addWidget(taskFocusProgressBar, row++, 1);
+    
+    mainLayout->addWidget(focusGroup);
+    
+    // Imaging Group
+    QGroupBox *imagingGroup = new QGroupBox("Imaging Session", tab);
+    QGridLayout *imagingLayout = new QGridLayout(imagingGroup);
+    
+    row = 0;
+    
+    imagingLayout->addWidget(new QLabel("Session Name:"), row, 0);
+    taskImagingNameLabel = new QLabel("-", imagingGroup);
+    imagingLayout->addWidget(taskImagingNameLabel, row++, 1);
+    
+    mainLayout->addWidget(imagingGroup);
+    
+    // Last update
+    taskLastUpdateLabel = new QLabel("Last Update: Never", tab);
+    mainLayout->addWidget(taskLastUpdateLabel);
+    
+    // Add stretch to push everything up
+    mainLayout->addStretch(1);
+    
+    return tab;
+}
+
+// ============================================================================
+// Add to TelescopeGUI.cpp - Update display handler
+// ============================================================================
+
+void TelescopeGUI::updateTaskControllerDisplay() {
+    const TelescopeData &data = dataProcessor->getData();
+    const TaskControllerStatus &tc = data.taskController;
+    
+    // Update state with color coding
+    taskStateLabel->setText(tc.state);
+    if (tc.state == "INITIALIZING") {
+        taskStateLabel->setStyleSheet("color: orange;");
+    } else if (tc.state == "IDLE") {
+        taskStateLabel->setStyleSheet("color: green;");
+    } else if (tc.state == "IMAGING") {
+        taskStateLabel->setStyleSheet("color: blue;");
+    } else {
+        taskStateLabel->setStyleSheet("color: black;");
+    }
+    
+    // Update stage
+    taskStageLabel->setText(tc.stage);
+    
+    // Update ready status with color
+    taskReadyLabel->setText(tc.isReady ? "YES" : "NO");
+    taskReadyLabel->setStyleSheet(tc.isReady ? "color: green;" : "color: red;");
+    
+    // Update initialization info
+    if (!tc.currentStep.isEmpty()) {
+        taskCurrentStepLabel->setText(tc.currentStep);
+        
+        // Color code the current step
+        if (tc.currentStep == "NONE") {
+            taskCurrentStepLabel->setStyleSheet("color: gray;");
+        } else if (tc.currentStep == "MOVING_MOUNT") {
+            taskCurrentStepLabel->setStyleSheet("color: blue;");
+        } else if (tc.currentStep == "ALIGNING") {
+            taskCurrentStepLabel->setStyleSheet("color: orange;");
+        } else if (tc.currentStep == "FOCUSING") {
+            taskCurrentStepLabel->setStyleSheet("color: purple;");
+        } else {
+            taskCurrentStepLabel->setStyleSheet("color: black;");
+        }
+    } else {
+        taskCurrentStepLabel->setText("-");
+        taskCurrentStepLabel->setStyleSheet("");
+    }
+    
+    taskNumPointsLabel->setText(QString::number(tc.numPoints));
+    taskProgressBar->setValue(tc.percentageComplete);
+    
+    // Update focus info
+    if (tc.focusPosition > 0) {
+        taskFocusPositionLabel->setText(QString::number(tc.focusPosition));
+    } else {
+        taskFocusPositionLabel->setText("-");
+    }
+    taskFocusProgressBar->setValue(tc.focusPercentageComplete);
+    
+    // Update imaging info
+    if (!tc.imagingName.isEmpty()) {
+        taskImagingNameLabel->setText(tc.imagingName);
+    } else {
+        taskImagingNameLabel->setText("-");
+    }
+    
+    // Update last update time
+    updateLastUpdateLabel(taskLastUpdateLabel, data.taskControllerLastUpdate);
+    
+    // Also update the main status label at top of GUI
+    if (statusLabel) {
+        QString statusText = QString("Status: %1").arg(tc.state);
+        if (tc.state == "INITIALIZING") {
+            statusText += QString(" - %1 (%2%)").arg(tc.currentStep).arg(tc.percentageComplete);
+        }
+        statusLabel->setText(statusText);
+    }
 }
 
 QWidget* TelescopeGUI::createMountTab() {
@@ -1627,4 +1822,30 @@ void TelescopeGUI::startRightButton()
 void TelescopeGUI::onTrackingError(const QString& error)
 {
     QMessageBox::warning(this, "Tracking Error", error);
+}
+
+void TelescopeGUI::showLogReplay()
+{
+    if (!m_logReplayDialog) {
+        m_logReplayDialog = new LogReplayDialog(dataProcessor, this);
+        
+        // Connect signals to update main GUI as replay progresses
+        connect(m_logReplayDialog, &LogReplayDialog::messageProcessed,
+                this, [this](const LogEntry& entry, bool success) {
+            if (success) {
+                // Update displays as if receiving real data
+                updateMountDisplay();
+                updateCameraDisplay();
+                updateFocuserDisplay();
+                updateEnvironmentDisplay();
+                updateImageDisplay();
+                updateDiskDisplay();
+                updateDewHeaterDisplay();
+            }
+        });
+    }
+    
+    m_logReplayDialog->show();
+    m_logReplayDialog->raise();
+    m_logReplayDialog->activateWindow();
 }

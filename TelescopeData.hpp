@@ -89,6 +89,16 @@ struct OrientationStatus {
     int altitude = 0;
 };
 
+struct TaskControllerStatus {
+  QString state;
+  QString stage;
+  QString currentStep;
+  QString imagingName;
+  bool isReady;
+  int numPoints, focusPosition, percentageComplete, focusPercentageComplete;
+  
+};
+
 // Main struct to contain all telescope data
 struct TelescopeData {
     MountStatus mount;
@@ -99,6 +109,7 @@ struct TelescopeData {
     DiskStatus disk;
     DewHeaterStatus dewHeater;
     OrientationStatus orientation;
+    TaskControllerStatus taskController;
     
     // Timestamp of last update for each component
     QDateTime mountLastUpdate;
@@ -109,4 +120,5 @@ struct TelescopeData {
     QDateTime diskLastUpdate;
     QDateTime dewHeaterLastUpdate;
     QDateTime orientationLastUpdate;
+    QDateTime taskControllerLastUpdate;
 };

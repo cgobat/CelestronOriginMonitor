@@ -41,8 +41,10 @@ template <> constexpr inline auto TelescopeGUI::qt_create_metaobjectdata<qt_meta
     namespace QMC = QtMocConstants;
     QtMocHelpers::StringRefStorage qt_stringData {
         "TelescopeGUI",
-        "startUpButton",
+        "showLogReplay",
         "",
+        "updateTaskControllerDisplay",
+        "startUpButton",
         "startDownButton",
         "startLeftButton",
         "startRightButton",
@@ -91,91 +93,95 @@ template <> constexpr inline auto TelescopeGUI::qt_create_metaobjectdata<qt_meta
     };
 
     QtMocHelpers::UintData qt_methods {
-        // Slot 'startUpButton'
+        // Slot 'showLogReplay'
         QtMocHelpers::SlotData<void()>(1, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'startDownButton'
+        // Slot 'updateTaskControllerDisplay'
         QtMocHelpers::SlotData<void()>(3, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'startLeftButton'
+        // Slot 'startUpButton'
         QtMocHelpers::SlotData<void()>(4, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'startRightButton'
+        // Slot 'startDownButton'
         QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'startLeftButton'
+        QtMocHelpers::SlotData<void()>(6, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'startRightButton'
+        QtMocHelpers::SlotData<void()>(7, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'slew'
-        QtMocHelpers::SlotData<void(int, int)>(6, 2, QMC::AccessPrivate, QMetaType::Void, {{
+        QtMocHelpers::SlotData<void(int, int)>(8, 2, QMC::AccessPrivate, QMetaType::Void, {{
             { QMetaType::Int, 2 }, { QMetaType::Int, 2 },
         }}),
         // Slot 'cancelSlew'
-        QtMocHelpers::SlotData<void()>(7, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onTrackingError'
-        QtMocHelpers::SlotData<void(const QString &)>(8, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QString, 9 },
+        QtMocHelpers::SlotData<void(const QString &)>(10, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QString, 11 },
         }}),
         // Slot 'onSlewCancel'
-        QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'startDiscovery'
-        QtMocHelpers::SlotData<void()>(11, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'stopDiscovery'
         QtMocHelpers::SlotData<void()>(12, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'processPendingDatagrams'
+        // Slot 'startDiscovery'
         QtMocHelpers::SlotData<void()>(13, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'connectToSelectedTelescope'
+        // Slot 'stopDiscovery'
         QtMocHelpers::SlotData<void()>(14, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onWebSocketConnected'
+        // Slot 'processPendingDatagrams'
         QtMocHelpers::SlotData<void()>(15, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onWebSocketDisconnected'
+        // Slot 'connectToSelectedTelescope'
         QtMocHelpers::SlotData<void()>(16, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onWebSocketConnected'
+        QtMocHelpers::SlotData<void()>(17, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onWebSocketDisconnected'
+        QtMocHelpers::SlotData<void()>(18, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onTextMessageReceived'
-        QtMocHelpers::SlotData<void(const QString &)>(17, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QString, 18 },
+        QtMocHelpers::SlotData<void(const QString &)>(19, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QString, 20 },
         }}),
         // Slot 'updateMountDisplay'
-        QtMocHelpers::SlotData<void()>(19, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'updateCameraDisplay'
-        QtMocHelpers::SlotData<void()>(20, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'updateFocuserDisplay'
         QtMocHelpers::SlotData<void()>(21, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'updateEnvironmentDisplay'
+        // Slot 'updateCameraDisplay'
         QtMocHelpers::SlotData<void()>(22, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'updateImageDisplay'
+        // Slot 'updateFocuserDisplay'
         QtMocHelpers::SlotData<void()>(23, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'updateDiskDisplay'
+        // Slot 'updateEnvironmentDisplay'
         QtMocHelpers::SlotData<void()>(24, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'updateDewHeaterDisplay'
+        // Slot 'updateImageDisplay'
         QtMocHelpers::SlotData<void()>(25, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'updateTimeDisplay'
+        // Slot 'updateDiskDisplay'
         QtMocHelpers::SlotData<void()>(26, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'startSlewAndImage'
+        // Slot 'updateDewHeaterDisplay'
         QtMocHelpers::SlotData<void()>(27, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'cancelSlewAndImage'
+        // Slot 'updateTimeDisplay'
         QtMocHelpers::SlotData<void()>(28, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'slewAndImageTimerTimeout'
+        // Slot 'startSlewAndImage'
         QtMocHelpers::SlotData<void()>(29, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'updateSlewAndImageStatus'
+        // Slot 'cancelSlewAndImage'
         QtMocHelpers::SlotData<void()>(30, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'initializeTelescope'
+        // Slot 'slewAndImageTimerTimeout'
         QtMocHelpers::SlotData<void()>(31, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'startTelescopeAlignment'
+        // Slot 'updateSlewAndImageStatus'
         QtMocHelpers::SlotData<void()>(32, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'checkMountStatus'
+        // Slot 'initializeTelescope'
         QtMocHelpers::SlotData<void()>(33, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'startTelescopeAlignment'
+        QtMocHelpers::SlotData<void()>(34, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'checkMountStatus'
+        QtMocHelpers::SlotData<void()>(35, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onCameraModeChanged'
-        QtMocHelpers::SlotData<void(bool)>(34, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Bool, 35 },
+        QtMocHelpers::SlotData<void(bool)>(36, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Bool, 37 },
         }}),
         // Slot 'onCaptureParametersChanged'
-        QtMocHelpers::SlotData<void(double, int)>(36, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Double, 37 }, { QMetaType::Int, 38 },
+        QtMocHelpers::SlotData<void(double, int)>(38, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Double, 39 }, { QMetaType::Int, 40 },
         }}),
         // Slot 'onSnapshotReady'
-        QtMocHelpers::SlotData<void(const QString &, double, double)>(39, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QString, 40 }, { QMetaType::Double, 41 }, { QMetaType::Double, 42 },
+        QtMocHelpers::SlotData<void(const QString &, double, double)>(41, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QString, 42 }, { QMetaType::Double, 43 }, { QMetaType::Double, 44 },
         }}),
         // Slot 'onSnapshotDownloaded'
-        QtMocHelpers::SlotData<void(const QString &)>(43, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QString, 44 },
+        QtMocHelpers::SlotData<void(const QString &)>(45, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QString, 46 },
         }}),
         // Slot 'onSnapshotDownloadProgress'
-        QtMocHelpers::SlotData<void(qint64, qint64)>(45, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::LongLong, 46 }, { QMetaType::LongLong, 47 },
+        QtMocHelpers::SlotData<void(qint64, qint64)>(47, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::LongLong, 48 }, { QMetaType::LongLong, 49 },
         }}),
     };
     QtMocHelpers::UintData qt_properties {
@@ -200,41 +206,43 @@ void TelescopeGUI::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id
     auto *_t = static_cast<TelescopeGUI *>(_o);
     if (_c == QMetaObject::InvokeMetaMethod) {
         switch (_id) {
-        case 0: _t->startUpButton(); break;
-        case 1: _t->startDownButton(); break;
-        case 2: _t->startLeftButton(); break;
-        case 3: _t->startRightButton(); break;
-        case 4: _t->slew((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
-        case 5: _t->cancelSlew(); break;
-        case 6: _t->onTrackingError((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
-        case 7: _t->onSlewCancel(); break;
-        case 8: _t->startDiscovery(); break;
-        case 9: _t->stopDiscovery(); break;
-        case 10: _t->processPendingDatagrams(); break;
-        case 11: _t->connectToSelectedTelescope(); break;
-        case 12: _t->onWebSocketConnected(); break;
-        case 13: _t->onWebSocketDisconnected(); break;
-        case 14: _t->onTextMessageReceived((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
-        case 15: _t->updateMountDisplay(); break;
-        case 16: _t->updateCameraDisplay(); break;
-        case 17: _t->updateFocuserDisplay(); break;
-        case 18: _t->updateEnvironmentDisplay(); break;
-        case 19: _t->updateImageDisplay(); break;
-        case 20: _t->updateDiskDisplay(); break;
-        case 21: _t->updateDewHeaterDisplay(); break;
-        case 22: _t->updateTimeDisplay(); break;
-        case 23: _t->startSlewAndImage(); break;
-        case 24: _t->cancelSlewAndImage(); break;
-        case 25: _t->slewAndImageTimerTimeout(); break;
-        case 26: _t->updateSlewAndImageStatus(); break;
-        case 27: _t->initializeTelescope(); break;
-        case 28: _t->startTelescopeAlignment(); break;
-        case 29: _t->checkMountStatus(); break;
-        case 30: _t->onCameraModeChanged((*reinterpret_cast< std::add_pointer_t<bool>>(_a[1]))); break;
-        case 31: _t->onCaptureParametersChanged((*reinterpret_cast< std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
-        case 32: _t->onSnapshotReady((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3]))); break;
-        case 33: _t->onSnapshotDownloaded((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
-        case 34: _t->onSnapshotDownloadProgress((*reinterpret_cast< std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<qint64>>(_a[2]))); break;
+        case 0: _t->showLogReplay(); break;
+        case 1: _t->updateTaskControllerDisplay(); break;
+        case 2: _t->startUpButton(); break;
+        case 3: _t->startDownButton(); break;
+        case 4: _t->startLeftButton(); break;
+        case 5: _t->startRightButton(); break;
+        case 6: _t->slew((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
+        case 7: _t->cancelSlew(); break;
+        case 8: _t->onTrackingError((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
+        case 9: _t->onSlewCancel(); break;
+        case 10: _t->startDiscovery(); break;
+        case 11: _t->stopDiscovery(); break;
+        case 12: _t->processPendingDatagrams(); break;
+        case 13: _t->connectToSelectedTelescope(); break;
+        case 14: _t->onWebSocketConnected(); break;
+        case 15: _t->onWebSocketDisconnected(); break;
+        case 16: _t->onTextMessageReceived((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
+        case 17: _t->updateMountDisplay(); break;
+        case 18: _t->updateCameraDisplay(); break;
+        case 19: _t->updateFocuserDisplay(); break;
+        case 20: _t->updateEnvironmentDisplay(); break;
+        case 21: _t->updateImageDisplay(); break;
+        case 22: _t->updateDiskDisplay(); break;
+        case 23: _t->updateDewHeaterDisplay(); break;
+        case 24: _t->updateTimeDisplay(); break;
+        case 25: _t->startSlewAndImage(); break;
+        case 26: _t->cancelSlewAndImage(); break;
+        case 27: _t->slewAndImageTimerTimeout(); break;
+        case 28: _t->updateSlewAndImageStatus(); break;
+        case 29: _t->initializeTelescope(); break;
+        case 30: _t->startTelescopeAlignment(); break;
+        case 31: _t->checkMountStatus(); break;
+        case 32: _t->onCameraModeChanged((*reinterpret_cast< std::add_pointer_t<bool>>(_a[1]))); break;
+        case 33: _t->onCaptureParametersChanged((*reinterpret_cast< std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
+        case 34: _t->onSnapshotReady((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3]))); break;
+        case 35: _t->onSnapshotDownloaded((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
+        case 36: _t->onSnapshotDownloadProgress((*reinterpret_cast< std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<qint64>>(_a[2]))); break;
         default: ;
         }
     }
@@ -259,14 +267,14 @@ int TelescopeGUI::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 35)
+        if (_id < 37)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 35;
+        _id -= 37;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 35)
+        if (_id < 37)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 35;
+        _id -= 37;
     }
     return _id;
 }
