@@ -1749,7 +1749,7 @@ void TelescopeGUI::checkMountStatus() {
     
     // Enable/disable slewing based on status
     bool canSlew = data.mount.isAligned && data.mount.isGotoOver;
-    startSlewButton->setEnabled(canSlew && !isSlewingAndImaging);
+    startSlewButton->setEnabled(!isSlewingAndImaging);
 }
 
 static const int SLEW_RATE = 9;
