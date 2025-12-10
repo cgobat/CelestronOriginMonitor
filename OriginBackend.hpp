@@ -49,6 +49,9 @@ public:
     explicit OriginBackend(QObject *parent = nullptr);
     ~OriginBackend();
 
+    // Give GUI access to the processor that receives WebSocket packets
+    TelescopeDataProcessor* getDataProcessor() const { return m_dataProcessor; }
+  
     // Connection management
     bool connectToTelescope(const QString& host, int port = 80);
     void disconnectFromTelescope();

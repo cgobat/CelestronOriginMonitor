@@ -4,25 +4,61 @@
 #include "MessierCatalog.hpp"
 #include <cmath>
 
-TelescopeGUI::TelescopeGUI(QWidget *parent) : QMainWindow(parent) {
+TelescopeGUI::TelescopeGUI(QWidget *parent)
+    : QMainWindow(parent)
+{
     setWindowTitle("Celestron Origin Monitor");
     resize(900, 700);
-    
-    dataProcessor = new TelescopeDataProcessor(this);
-    
-    // Connect signals from data processor
-    connect(dataProcessor, &TelescopeDataProcessor::mountStatusUpdated, this, &TelescopeGUI::updateMountDisplay);
-    connect(dataProcessor, &TelescopeDataProcessor::cameraStatusUpdated, this, &TelescopeGUI::updateCameraDisplay);
-    connect(dataProcessor, &TelescopeDataProcessor::focuserStatusUpdated, this, &TelescopeGUI::updateFocuserDisplay);
-    connect(dataProcessor, &TelescopeDataProcessor::environmentStatusUpdated, this, &TelescopeGUI::updateEnvironmentDisplay);
-    connect(dataProcessor, &TelescopeDataProcessor::newImageAvailable, this, &TelescopeGUI::updateImageDisplay);
-    connect(dataProcessor, &TelescopeDataProcessor::diskStatusUpdated, this, &TelescopeGUI::updateDiskDisplay);
-    connect(dataProcessor, &TelescopeDataProcessor::dewHeaterStatusUpdated, this, &TelescopeGUI::updateDewHeaterDisplay);
 
+    //
+    // IMPORTANT: Create the backend first
+    //
     originBackend = new OriginBackend(this);
-    
+
+    //
+    // Get the SAME data processor that OriginBackend feeds
+    //
+    dataProcessor = originBackend->getDataProcessor();
+
+    //
+    // Connect GUI update slots to this processor
+    //
+    connect(dataProcessor, &TelescopeDataProcessor::mountStatusUpdated,
+            this, &TelescopeGUI::updateMountDisplay);
+
+    connect(dataProcessor, &TelescopeDataProcessor::cameraStatusUpdated,
+            this, &TelescopeGUI::updateCameraDisplay);
+
+    connect(dataProcessor, &TelescopeDataProcessor::focuserStatusUpdated,
+            this, &TelescopeGUI::updateFocuserDisplay);
+
+    connect(dataProcessor, &TelescopeDataProcessor::environmentStatusUpdated,
+            this, &TelescopeGUI::updateEnvironmentDisplay);
+
+    connect(dataProcessor, &TelescopeDataProcessor::diskStatusUpdated,
+            this, &TelescopeGUI::updateDiskDisplay);
+
+    connect(dataProcessor, &TelescopeDataProcessor::dewHeaterStatusUpdated,
+            this, &TelescopeGUI::updateDewHeaterDisplay);
+    /*
+    connect(dataProcessor, &TelescopeDataProcessor::orientationStatusUpdated,
+            this, &TelescopeGUI::updateOrientationDisplay);
+    */
+    connect(dataProcessor, &TelescopeDataProcessor::taskControllerStatusUpdated,
+            this, &TelescopeGUI::updateTaskControllerDisplay);
+
+    connect(dataProcessor, &TelescopeDataProcessor::newImageAvailable,
+            this, &TelescopeGUI::updateImageDisplay);
+
+    //
+    // Now build GUI
+    //
     setupUI();
     m_logReplayDialog = nullptr;
+
+    //
+    // Device discovery
+    //
     setupDiscovery();
     
     // Update time display every second
