@@ -183,6 +183,12 @@ void TelescopeDataProcessor::updateTaskControllerStatus(const QJsonObject &obj) 
     telescopeData.taskController.state = obj["State"].toString();
     telescopeData.taskController.stage = obj["Stage"].toString();
     telescopeData.taskController.isReady = obj["IsReady"].toBool();
+
+    // Check for ErrorCode
+    if (obj.contains("ErrorMessage")) {
+        telescopeData.taskController.currentStep = obj["ErrorMessage"].toString();
+	qDebug() << "Error" << telescopeData.taskController.currentStep;
+    }
     
     // Check for InitializationInfo
     if (obj.contains("InitializationInfo")) {
@@ -191,11 +197,6 @@ void TelescopeDataProcessor::updateTaskControllerStatus(const QJsonObject &obj) 
         telescopeData.taskController.numPoints = initInfo["NumPoints"].toInt();
         telescopeData.taskController.percentageComplete = initInfo["PercentageComplete"].toInt();
 	qDebug() << "InitInfo" << telescopeData.taskController.percentageComplete;
-    } else {
-        // Clear initialization info if not present
-        telescopeData.taskController.currentStep = "";
-        telescopeData.taskController.numPoints = 0;
-        telescopeData.taskController.percentageComplete = 0;
     }
     
     // Check for FocusInfo
@@ -203,9 +204,6 @@ void TelescopeDataProcessor::updateTaskControllerStatus(const QJsonObject &obj) 
         QJsonObject focusInfo = obj["FocusInfo"].toObject();
         telescopeData.taskController.focusPosition = focusInfo["Position"].toInt();
         telescopeData.taskController.focusPercentageComplete = focusInfo["PercentageComplete"].toInt();
-    } else {
-        telescopeData.taskController.focusPosition = 0;
-        telescopeData.taskController.focusPercentageComplete = 0;
     }
     
     // Check for imaging session name

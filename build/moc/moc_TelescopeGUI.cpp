@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'TelescopeGUI.hpp'
 **
-** Created by: The Qt Meta Object Compiler version 69 (Qt 6.9.3)
+** Created by: The Qt Meta Object Compiler version 69 (Qt 6.10.1)
 **
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
@@ -20,7 +20,7 @@
 #if !defined(Q_MOC_OUTPUT_REVISION)
 #error "The header file 'TelescopeGUI.hpp' doesn't include <QObject>."
 #elif Q_MOC_OUTPUT_REVISION != 69
-#error "This file was generated using the moc from 6.9.3. It"
+#error "This file was generated using the moc from 6.10.1. It"
 #error "cannot be used with the include files from this version of Qt."
 #error "(The moc has changed too much.)"
 #endif
@@ -212,9 +212,9 @@ void TelescopeGUI::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id
         case 3: _t->startDownButton(); break;
         case 4: _t->startLeftButton(); break;
         case 5: _t->startRightButton(); break;
-        case 6: _t->slew((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
+        case 6: _t->slew((*reinterpret_cast<std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
         case 7: _t->cancelSlew(); break;
-        case 8: _t->onTrackingError((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
+        case 8: _t->onTrackingError((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
         case 9: _t->onSlewCancel(); break;
         case 10: _t->startDiscovery(); break;
         case 11: _t->stopDiscovery(); break;
@@ -222,7 +222,7 @@ void TelescopeGUI::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id
         case 13: _t->connectToSelectedTelescope(); break;
         case 14: _t->onWebSocketConnected(); break;
         case 15: _t->onWebSocketDisconnected(); break;
-        case 16: _t->onTextMessageReceived((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
+        case 16: _t->onTextMessageReceived((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
         case 17: _t->updateMountDisplay(); break;
         case 18: _t->updateCameraDisplay(); break;
         case 19: _t->updateFocuserDisplay(); break;
@@ -238,11 +238,11 @@ void TelescopeGUI::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id
         case 29: _t->initializeTelescope(); break;
         case 30: _t->startTelescopeAlignment(); break;
         case 31: _t->checkMountStatus(); break;
-        case 32: _t->onCameraModeChanged((*reinterpret_cast< std::add_pointer_t<bool>>(_a[1]))); break;
-        case 33: _t->onCaptureParametersChanged((*reinterpret_cast< std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
-        case 34: _t->onSnapshotReady((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3]))); break;
-        case 35: _t->onSnapshotDownloaded((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
-        case 36: _t->onSnapshotDownloadProgress((*reinterpret_cast< std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<qint64>>(_a[2]))); break;
+        case 32: _t->onCameraModeChanged((*reinterpret_cast<std::add_pointer_t<bool>>(_a[1]))); break;
+        case 33: _t->onCaptureParametersChanged((*reinterpret_cast<std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
+        case 34: _t->onSnapshotReady((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3]))); break;
+        case 35: _t->onSnapshotDownloaded((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
+        case 36: _t->onSnapshotDownloadProgress((*reinterpret_cast<std::add_pointer_t<qint64>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<qint64>>(_a[2]))); break;
         default: ;
         }
     }

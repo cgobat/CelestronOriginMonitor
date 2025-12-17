@@ -644,6 +644,7 @@ void TelescopeGUI::updateTaskControllerDisplay() {
         taskStateLabel->setStyleSheet("color: orange;");
     } else if (tc.state == "IDLE") {
         taskStateLabel->setStyleSheet("color: green;");
+	initializeButton->setEnabled(true);
     } else if (tc.state == "IMAGING") {
         taskStateLabel->setStyleSheet("color: blue;");
     } else {

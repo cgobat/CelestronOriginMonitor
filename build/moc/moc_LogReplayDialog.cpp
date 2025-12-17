@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'LogReplayDialog.hpp'
 **
-** Created by: The Qt Meta Object Compiler version 69 (Qt 6.9.3)
+** Created by: The Qt Meta Object Compiler version 69 (Qt 6.10.1)
 **
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
@@ -19,7 +19,7 @@
 #if !defined(Q_MOC_OUTPUT_REVISION)
 #error "The header file 'LogReplayDialog.hpp' doesn't include <QObject>."
 #elif Q_MOC_OUTPUT_REVISION != 69
-#error "This file was generated using the moc from 6.9.3. It"
+#error "This file was generated using the moc from 6.10.1. It"
 #error "cannot be used with the include files from this version of Qt."
 #error "(The moc has changed too much.)"
 #endif
@@ -115,17 +115,17 @@ void LogReplayDialog::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int 
     auto *_t = static_cast<LogReplayDialog *>(_o);
     if (_c == QMetaObject::InvokeMetaMethod) {
         switch (_id) {
-        case 0: _t->messageProcessed((*reinterpret_cast< std::add_pointer_t<LogEntry>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<bool>>(_a[2]))); break;
-        case 1: _t->positionChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
+        case 0: _t->messageProcessed((*reinterpret_cast<std::add_pointer_t<LogEntry>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<bool>>(_a[2]))); break;
+        case 1: _t->positionChanged((*reinterpret_cast<std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
         case 2: _t->onLoadFile(); break;
         case 3: _t->onStepForward(); break;
         case 4: _t->onStepBackward(); break;
         case 5: _t->onPlay(); break;
         case 6: _t->onPause(); break;
         case 7: _t->onReset(); break;
-        case 8: _t->onSliderMoved((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
+        case 8: _t->onSliderMoved((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
         case 9: _t->onPlaybackTimer(); break;
-        case 10: _t->onSpeedChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
+        case 10: _t->onSpeedChanged((*reinterpret_cast<std::add_pointer_t<int>>(_a[1]))); break;
         default: ;
         }
     }
