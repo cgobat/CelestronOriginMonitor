@@ -99,12 +99,11 @@ public:
     QImage singleShot(int gain, int binning, int exposureTimeMicroseconds);
     void sendCommand(const QString& command, const QString& destination, 
                     const QJsonObject& params = QJsonObject());
-    bool takeSnapshot(double exposure, int iso);
+  bool takeSnapshot(double exposure, int iso, int binning);
     bool setManualMode();
     bool setAutoMode();
     bool getCameraMode();
     bool getCaptureParameters();
-    bool setCaptureParameters(double exposure, int iso);
     bool getCameraInfo();
     // Camera mode control
     bool setCameraManualMode();
@@ -112,6 +111,7 @@ public:
      
     // Camera exposure/ISO control
     bool setCameraExposure(double seconds);
+    bool setCameraBinning(int binning);
     bool setCameraISO(int iso);
     
     // Snapshot control
@@ -126,7 +126,7 @@ signals:
     void imageReady();
     // Camera-related signals
     void cameraModeChanged(bool isManual);
-    void captureParametersChanged(double exposure, int iso);
+    void captureParametersChanged(double exposure, int iso, int binning);
     void cameraInfoReceived(const QString& cameraID, const QString& model);
     void snapshotRequested();  // Emitted when snapshot command sent
     void tiffImageDownloaded(const QString& filePath, const QByteArray& imageData,
@@ -177,6 +177,7 @@ private:
     bool m_cameraManualMode;
     double m_currentExposure;
     int m_currentISO;
+    int m_currentBinning;
     bool m_snapshotInProgress;
     
     // Image metadata from last NewImageReady

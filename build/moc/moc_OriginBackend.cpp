@@ -1,7 +1,7 @@
 /****************************************************************************
 ** Meta object code from reading C++ file 'OriginBackend.hpp'
 **
-** Created by: The Qt Meta Object Compiler version 69 (Qt 6.9.3)
+** Created by: The Qt Meta Object Compiler version 69 (Qt 6.10.1)
 **
 ** WARNING! All changes made in this file will be lost!
 *****************************************************************************/
@@ -19,7 +19,7 @@
 #if !defined(Q_MOC_OUTPUT_REVISION)
 #error "The header file 'OriginBackend.hpp' doesn't include <QObject>."
 #elif Q_MOC_OUTPUT_REVISION != 69
-#error "This file was generated using the moc from 6.9.3. It"
+#error "This file was generated using the moc from 6.10.1. It"
 #error "cannot be used with the include files from this version of Qt."
 #error "(The moc has changed too much.)"
 #endif
@@ -50,6 +50,7 @@ template <> constexpr inline auto OriginBackend::qt_create_metaobjectdata<qt_met
         "captureParametersChanged",
         "exposure",
         "iso",
+        "binning",
         "cameraInfoReceived",
         "cameraID",
         "model",
@@ -81,34 +82,34 @@ template <> constexpr inline auto OriginBackend::qt_create_metaobjectdata<qt_met
             { QMetaType::Bool, 7 },
         }}),
         // Signal 'captureParametersChanged'
-        QtMocHelpers::SignalData<void(double, int)>(8, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::Double, 9 }, { QMetaType::Int, 10 },
+        QtMocHelpers::SignalData<void(double, int, int)>(8, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::Double, 9 }, { QMetaType::Int, 10 }, { QMetaType::Int, 11 },
         }}),
         // Signal 'cameraInfoReceived'
-        QtMocHelpers::SignalData<void(const QString &, const QString &)>(11, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::QString, 12 }, { QMetaType::QString, 13 },
+        QtMocHelpers::SignalData<void(const QString &, const QString &)>(12, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QString, 13 }, { QMetaType::QString, 14 },
         }}),
         // Signal 'snapshotRequested'
-        QtMocHelpers::SignalData<void()>(14, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::SignalData<void()>(15, 2, QMC::AccessPublic, QMetaType::Void),
         // Signal 'tiffImageDownloaded'
-        QtMocHelpers::SignalData<void(const QString &, const QByteArray &, double, double, double)>(15, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::QString, 16 }, { QMetaType::QByteArray, 17 }, { QMetaType::Double, 18 }, { QMetaType::Double, 19 },
+        QtMocHelpers::SignalData<void(const QString &, const QByteArray &, double, double, double)>(16, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QString, 17 }, { QMetaType::QByteArray, 18 }, { QMetaType::Double, 19 }, { QMetaType::Double, 20 },
             { QMetaType::Double, 9 },
         }}),
         // Signal 'liveImageDownloaded'
-        QtMocHelpers::SignalData<void(const QByteArray &, double, double, double)>(20, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::QByteArray, 17 }, { QMetaType::Double, 18 }, { QMetaType::Double, 19 }, { QMetaType::Double, 9 },
+        QtMocHelpers::SignalData<void(const QByteArray &, double, double, double)>(21, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QByteArray, 18 }, { QMetaType::Double, 19 }, { QMetaType::Double, 20 }, { QMetaType::Double, 9 },
         }}),
         // Slot 'onWebSocketConnected'
-        QtMocHelpers::SlotData<void()>(21, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onWebSocketDisconnected'
         QtMocHelpers::SlotData<void()>(22, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onWebSocketDisconnected'
+        QtMocHelpers::SlotData<void()>(23, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onTextMessageReceived'
-        QtMocHelpers::SlotData<void(const QString &)>(23, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::QString, 24 },
+        QtMocHelpers::SlotData<void(const QString &)>(24, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::QString, 25 },
         }}),
         // Slot 'updateStatus'
-        QtMocHelpers::SlotData<void()>(25, 2, QMC::AccessPrivate, QMetaType::Void),
+        QtMocHelpers::SlotData<void()>(26, 2, QMC::AccessPrivate, QMetaType::Void),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -136,15 +137,15 @@ void OriginBackend::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
         case 1: _t->disconnected(); break;
         case 2: _t->statusUpdated(); break;
         case 3: _t->imageReady(); break;
-        case 4: _t->cameraModeChanged((*reinterpret_cast< std::add_pointer_t<bool>>(_a[1]))); break;
-        case 5: _t->captureParametersChanged((*reinterpret_cast< std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
-        case 6: _t->cameraInfoReceived((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QString>>(_a[2]))); break;
+        case 4: _t->cameraModeChanged((*reinterpret_cast<std::add_pointer_t<bool>>(_a[1]))); break;
+        case 5: _t->captureParametersChanged((*reinterpret_cast<std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[3]))); break;
+        case 6: _t->cameraInfoReceived((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2]))); break;
         case 7: _t->snapshotRequested(); break;
-        case 8: _t->tiffImageDownloaded((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<QByteArray>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[4])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[5]))); break;
-        case 9: _t->liveImageDownloaded((*reinterpret_cast< std::add_pointer_t<QByteArray>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[4]))); break;
+        case 8: _t->tiffImageDownloaded((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QByteArray>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[4])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[5]))); break;
+        case 9: _t->liveImageDownloaded((*reinterpret_cast<std::add_pointer_t<QByteArray>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[4]))); break;
         case 10: _t->onWebSocketConnected(); break;
         case 11: _t->onWebSocketDisconnected(); break;
-        case 12: _t->onTextMessageReceived((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1]))); break;
+        case 12: _t->onTextMessageReceived((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
         case 13: _t->updateStatus(); break;
         default: ;
         }
@@ -160,7 +161,7 @@ void OriginBackend::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
             return;
         if (QtMocHelpers::indexOfMethod<void (OriginBackend::*)(bool )>(_a, &OriginBackend::cameraModeChanged, 4))
             return;
-        if (QtMocHelpers::indexOfMethod<void (OriginBackend::*)(double , int )>(_a, &OriginBackend::captureParametersChanged, 5))
+        if (QtMocHelpers::indexOfMethod<void (OriginBackend::*)(double , int , int )>(_a, &OriginBackend::captureParametersChanged, 5))
             return;
         if (QtMocHelpers::indexOfMethod<void (OriginBackend::*)(const QString & , const QString & )>(_a, &OriginBackend::cameraInfoReceived, 6))
             return;
@@ -235,9 +236,9 @@ void OriginBackend::cameraModeChanged(bool _t1)
 }
 
 // SIGNAL 5
-void OriginBackend::captureParametersChanged(double _t1, int _t2)
+void OriginBackend::captureParametersChanged(double _t1, int _t2, int _t3)
 {
-    QMetaObject::activate<void>(this, &staticMetaObject, 5, nullptr, _t1, _t2);
+    QMetaObject::activate<void>(this, &staticMetaObject, 5, nullptr, _t1, _t2, _t3);
 }
 
 // SIGNAL 6

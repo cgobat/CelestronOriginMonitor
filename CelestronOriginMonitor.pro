@@ -36,6 +36,7 @@ SOURCES += \
     TelescopeGUI.cpp \
     OriginBackend.cpp \
     LogReplayDialog.cpp \
+    CommandInterface.cpp \
 
 # Original header files
 HEADERS += \
@@ -46,6 +47,7 @@ HEADERS += \
     TelescopeGUI.hpp \
     OriginBackend.hpp \
     LogReplayDialog.hpp \
+    CommandInterface.hpp \
     
 # Default rules
 qnx: target.path = /tmp/$${TARGET}/bin

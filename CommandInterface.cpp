@@ -1,3 +1,4 @@
+#include "OriginBackend.hpp"
 #include "TelescopeGUI.hpp"
 #include "CommandInterface.hpp"
 
@@ -57,13 +58,11 @@ void CommandInterface::setupUI() {
         "StartAlignment", 
         "AddAlignmentPoint", 
         "FinishAlignment", 
-        "MoveAxis", 
-        "AbortAxisMovement",
         "GetCaptureParameters", 
         "SetCaptureParameters", 
-        "CaptureImage",
-        "MoveToPosition", 
-        "AbortMoveTo"
+        "SetStretch", 
+        "SetEnableAuto", 
+        "SetEnableManual"
     });
     formLayout->addRow("Command:", commandComboBox);
     
@@ -77,6 +76,7 @@ void CommandInterface::setupUI() {
         "Disk", 
         "DewHeater", 
         "OrientationSensor", 
+        "LiveStream", 
         "System", 
         "All"
     });

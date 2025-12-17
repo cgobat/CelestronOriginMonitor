@@ -300,6 +300,7 @@ private:
     
     // Camera control UI widgets
     QDoubleSpinBox* exposureSpinBox;
+    QSpinBox* binningSpinBox;
     QSpinBox* isoSpinBox;
     QPushButton* snapshotButton;
     QProgressBar* snapshotProgressBar;

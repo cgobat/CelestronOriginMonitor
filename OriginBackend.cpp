@@ -13,6 +13,7 @@ OriginBackend::OriginBackend(QObject *parent)
     , m_cameraManualMode(false)
     , m_currentExposure(0.1)
     , m_currentISO(200)
+    , m_currentBinning(1)
     , m_snapshotInProgress(false)
     , m_lastImageRa(0)
     , m_lastImageDec(0)
@@ -197,10 +198,10 @@ bool OriginBackend::syncPosition(double ra, double dec)
 // Snapshot Control
 bool OriginBackend::takeSingleSnapshot()
 {
-    return takeSnapshot(m_currentExposure, m_currentISO);
+  return takeSnapshot(m_currentExposure, m_currentISO, m_currentBinning);
 }
 
-bool OriginBackend::takeSnapshot(double exposure, int iso)
+bool OriginBackend::takeSnapshot(double exposure, int iso, int binning)
 {
     qDebug() << "Taking snapshot: Exposure =" << exposure << "ISO =" << iso;
     if (!isConnected()) {
@@ -213,6 +214,7 @@ bool OriginBackend::takeSnapshot(double exposure, int iso)
     QJsonObject params;
     params["ExposureTime"] = exposure;
     params["ISO"] = iso;
+    params["Binning"] = binning;
     
     sendCommand("RunSampleCapture", "TaskController", params);
     return true;
@@ -265,19 +267,6 @@ bool OriginBackend::getCaptureParameters()
 
     QJsonObject cmd;    
     sendCommand("GetCaptureParameters", "Camera", cmd);
-    return true;
-}
-
-bool OriginBackend::setCaptureParameters(double exposure, int iso)
-{
-    if (!isConnected()) {
-        return false;
-    }
-    
-    QJsonObject cmd;
-    cmd["Exposure"] = exposure;
-    cmd["ISO"] = iso;
-    sendCommand("SetCaptureParameters", "Camera", cmd);
     return true;
 }
 
@@ -475,12 +464,29 @@ bool OriginBackend::abortExposure()
 // Exposure and ISO Control
 bool OriginBackend::setCameraExposure(double seconds)
 {
-    return setCaptureParameters(seconds, m_currentISO);
+    QJsonObject cmd;
+    if (!isConnected()) return false;
+    cmd["Exposure"] = seconds;
+    sendCommand("SetCaptureParameters", "Camera", cmd);
+    return true;
+}
+
+bool OriginBackend::setCameraBinning(int binning)
+{
+    QJsonObject cmd;
+    if (!isConnected()) return false;
+    cmd["Binning"] = binning;
+    sendCommand("SetCaptureParameters", "Camera", cmd);
+    return true;
 }
 
 bool OriginBackend::setCameraISO(int iso)
 {
-    return setCaptureParameters(m_currentExposure, iso);
+    QJsonObject cmd;
+    if (!isConnected()) return false;
+    cmd["ISO"] = iso;
+    sendCommand("SetCaptureParameters", "Camera", cmd);
+    return true;
 }
 
 QImage OriginBackend::singleShot(int gain, int binning, int exposureTimeMicroseconds)
@@ -621,11 +627,12 @@ void OriginBackend::onTextMessageReceived(const QString &message)
         // Process camera responses
         if (command == "GetCaptureParameters") {
             m_currentExposure = obj["Exposure"].toDouble();
+            m_currentBinning = obj["Binning"].toInt();
             m_currentISO = obj["ISO"].toInt();
             
 	    // qDebug() << "Capture parameters: Exposure =" << m_currentExposure << "ISO =" << m_currentISO;
             
-            emit captureParametersChanged(m_currentExposure, m_currentISO);
+            emit captureParametersChanged(m_currentExposure, m_currentISO, m_currentBinning);
         }
         else if (command == "GetEnableManual" || 
                  command == "SetEnableManual" || 
@@ -702,7 +709,7 @@ QJsonObject OriginBackend::createCommand(const QString& command, const QString& 
     jsonCommand["Command"] = command;
     jsonCommand["Destination"] = destination;
     jsonCommand["SequenceID"] = m_nextSequenceId++;
-    jsonCommand["Source"] = "AlpacaServer";
+    jsonCommand["Source"] = "OriginMobileApp";
     jsonCommand["Type"] = "Command";
     
     // Add any parameters
@@ -821,7 +828,7 @@ void OriginBackend::requestImage(const QString &filePath) {
 		    m_lastImage = image;
 		    m_imageReady = true;
 
-		    qDebug() << "Image downloaded successfully, size:" << imageData.size() << "bytes";
+		    if (false) qDebug() << "Image downloaded successfully, size:" << imageData.size() << "bytes";
 		    emit liveImageDownloaded(imageData, ra, dec, exposure);
 		} else {
 		    qWarning() << "Failed to load image from downloaded data";

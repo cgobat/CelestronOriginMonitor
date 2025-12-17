@@ -69,7 +69,7 @@ TelescopeGUI::TelescopeGUI(QWidget *parent)
     // cancel slews after 100ms
     slewTimer = new QTimer(this);
     slewTimer->setSingleShot(true);
-    slewTimer->setInterval(100);
+    slewTimer->setInterval(1000);
     connect(slewTimer, &QTimer::timeout, this, &TelescopeGUI::onSlewCancel);
 
     // ===== ADD TO TelescopeGUI CONSTRUCTOR =====
@@ -505,8 +505,14 @@ void TelescopeGUI::setupUI() {
     tabWidget->addTab(createDewHeaterTab(), "Dew Heater");
     tabWidget->addTab(createSlewAndImageTab(), "Slew & Image");   
     tabWidget->addTab(createTaskControllerTab(), "Task Controller");   
+    tabWidget->addTab(createCommandTab(), "Commands");   
     
     mainLayout->addWidget(tabWidget);
+}
+
+QWidget* TelescopeGUI::createCommandTab() {
+    CommandInterface *commandInterface = new CommandInterface(this, this);
+    return commandInterface;
 }
 
 // ============================================================================
@@ -963,12 +969,23 @@ QWidget* TelescopeGUI::createImageTab() {
     exposureSpinBox = new QDoubleSpinBox(tab);
     exposureSpinBox->setRange(0.001, 300.0);
     exposureSpinBox->setValue(0.1);
-    exposureSpinBox->setDecimals(3);
+    exposureSpinBox->setDecimals(6);
     
     connect(exposureSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
             originBackend, &OriginBackend::setCameraExposure);
     
     cameraControlLayout->addWidget(exposureSpinBox, ctrlRow++, 1);
+    
+    // Binning Control
+    cameraControlLayout->addWidget(new QLabel("Binning:"), ctrlRow, 0);
+    binningSpinBox = new QSpinBox(tab);
+    binningSpinBox->setRange(1, 2);
+    binningSpinBox->setValue(1);
+    
+    connect(binningSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
+            originBackend, &OriginBackend::setCameraBinning);
+    
+    cameraControlLayout->addWidget(binningSpinBox, ctrlRow++, 1);
     
     // ISO Control
     cameraControlLayout->addWidget(new QLabel("ISO:"), ctrlRow, 0);
@@ -1082,15 +1099,18 @@ QWidget* TelescopeGUI::createImageTab() {
 	    this, &TelescopeGUI::onCameraModeChanged);
 
     connect(originBackend, &OriginBackend::captureParametersChanged,
-	    this, [this](double exposure, int iso) {
+	    this, [this](double exposure, int iso, int binning) {
 		// Update spinboxes without triggering signals
 		exposureSpinBox->blockSignals(true);
+		binningSpinBox->blockSignals(true);
 		isoSpinBox->blockSignals(true);
 
 		exposureSpinBox->setValue(exposure);
+		binningSpinBox->setValue(binning);
 		isoSpinBox->setValue(iso);
 
 		exposureSpinBox->blockSignals(false);
+		binningSpinBox->blockSignals(false);
 		isoSpinBox->blockSignals(false);
 
 		// qDebug() << "Capture parameters updated:" << exposure << iso;
@@ -1318,7 +1338,7 @@ void TelescopeGUI::requestImage(const QString &filePath) {
     request.setRawHeader("User-Agent", "CelestronOriginMonitor Qt Application");
     request.setRawHeader("Connection", "keep-alive");
     
-    //    qDebug() << "Requesting image from:" << fullPath;
+    if (false) qDebug() << "Requesting image from:" << fullPath;
     
     QNetworkAccessManager *manager = new QNetworkAccessManager(this);
     QNetworkReply *reply = manager->get(request);
@@ -1328,7 +1348,7 @@ void TelescopeGUI::requestImage(const QString &filePath) {
             // Read the image data
             QByteArray imageData = reply->readAll();
             
-	    //            qDebug() << "Received image data, size:" << imageData.size() << "bytes";
+            if (false) qDebug() << "Received image data, size:" << imageData.size() << "bytes";
             
             // Create a QPixmap from the data
             QPixmap pixmap;
@@ -1797,6 +1817,7 @@ QJsonObject slewCommand;
     slewCommand["AltRate"] = alt;  // Positive for up
     slewCommand["AzmRate"] = az;
     originBackend->sendCommand("Slew", "Mount", slewCommand);
+    qDebug() << "Slew: " << alt << az;
 }
 
 void TelescopeGUI::cancelSlew()
