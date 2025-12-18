@@ -73,8 +73,8 @@ public:
     bool gotoPosition(double ra, double dec);
     bool syncPosition(double ra, double dec);
     bool abortMotion();
-    bool parkMount();
-    bool unparkMount();
+    bool parkMount();           // Park using MoveAxis and altitude monitoring
+    bool unparkMount();         // Unpark using MoveAxis and altitude monitoring
     bool initializeTelescope();
     bool moveDirection(int direction, int speed);
 
@@ -99,7 +99,7 @@ public:
     QImage singleShot(int gain, int binning, int exposureTimeMicroseconds);
     void sendCommand(const QString& command, const QString& destination, 
                     const QJsonObject& params = QJsonObject());
-  bool takeSnapshot(double exposure, int iso, int binning);
+    bool takeSnapshot(double exposure, int iso, int binning);
     bool setManualMode();
     bool setAutoMode();
     bool getCameraMode();
@@ -128,23 +128,32 @@ signals:
     void cameraModeChanged(bool isManual);
     void captureParametersChanged(double exposure, int iso, int binning);
     void cameraInfoReceived(const QString& cameraID, const QString& model);
-    void snapshotRequested();  // Emitted when snapshot command sent
+    void snapshotRequested();
     void tiffImageDownloaded(const QString& filePath, const QByteArray& imageData,
                             double ra, double dec, double exposure);
     void liveImageDownloaded(const QByteArray& imageData, 
                             double ra, double dec, double exposure);
+    // Park/Unpark signals
+    void parkStarted();
+    void unparkStarted();
+    void parkCompleted();
+    void unparkCompleted();
+    void trackingError(const QString& error);
+
 private slots:
     void onWebSocketConnected();
     void onWebSocketDisconnected();
     void onTextMessageReceived(const QString &message);
     void updateStatus();
+    void monitorParkProgress();  // Monitor altitude during park/unpark
 
 private:
     QWebSocket *m_webSocket;
     TelescopeDataProcessor *m_dataProcessor;
     QNetworkAccessManager *m_networkManager;
     QTimer *m_statusTimer;
-    QTimer *m_pingTimer;  // ADD THIS - for WebSocket keep-alive
+    QTimer *m_pingTimer;
+    QTimer *m_parkMonitorTimer;  // Timer for monitoring park/unpark progress
   
     // State variables
     QString m_connectedHost;
@@ -173,6 +182,8 @@ private:
     void requestImage(const QString& filePath);
     double hoursToRadians(double hours);
     double degreesToRadians(double degrees);
+    void stopParkMotion();  // Stop altitude motion during park/unpark
+    
     // Camera state tracking
     bool m_cameraManualMode;
     double m_currentExposure;
@@ -186,4 +197,9 @@ private:
     double m_lastImageExposure;
     QString m_lastImageFilePath;
     int m_statusRotation;
+    
+    // Park/Unpark state
+    bool m_parkingInProgress;
+    bool m_unparkingInProgress;
+    double m_targetAltitude;  // Target altitude for park/unpark operations
 };

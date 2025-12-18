@@ -27,17 +27,22 @@ OriginBackend::OriginBackend(QObject *parent)
     , m_isExposing(false)
     , m_imageReady(false)
     , m_nextSequenceId(2000)
-    , m_logFile(nullptr)  // ADD THIS
-    , m_logStream(nullptr)  // ADD THIS
-    , m_statusRotation(0)  // ADD THIS
+    , m_logFile(nullptr)
+    , m_logStream(nullptr)
+    , m_statusRotation(0)
+    , m_parkingInProgress(false)
+    , m_unparkingInProgress(false)
+    , m_targetAltitude(0.0)
+    , m_parkMonitorTimer(nullptr)
 {
     m_webSocket = new QWebSocket("", QWebSocketProtocol::VersionLatest, this);
     m_dataProcessor = new TelescopeDataProcessor(this);
     m_networkManager = new QNetworkAccessManager(this);
     m_statusTimer = new QTimer(this);
     m_pingTimer = new QTimer(this);
+    m_parkMonitorTimer = new QTimer(this);
 
-    // Initialize logging - ADD THIS
+    // Initialize logging
     initializeLogging();
 
     // Connect WebSocket signals
@@ -78,6 +83,10 @@ OriginBackend::OriginBackend(QObject *parent)
             logWebSocketMessage("PING", "Keep-alive ping sent");
         }
     });
+
+    // Setup park monitoring timer
+    m_parkMonitorTimer->setInterval(500);  // Check every 0.5 seconds
+    connect(m_parkMonitorTimer, &QTimer::timeout, this, &OriginBackend::monitorParkProgress);
 
 }
 
@@ -299,16 +308,147 @@ bool OriginBackend::abortMotion()
     return true;
 }
 
+// ============================================================================
+// PARK AND UNPARK IMPLEMENTATION using Slew command
+// ============================================================================
+
+void OriginBackend::monitorParkProgress()
+{
+    const TelescopeData& data = m_dataProcessor->getData();
+    double currentAlt = radiansToDegrees(data.mount.altitude);
+    
+    qDebug() << "Park monitoring - Target:" << m_targetAltitude 
+             << "Current:" << currentAlt;
+    
+    if (m_parkingInProgress) {
+        // Check if we've reached park altitude (-10°)
+        // Allow 2° tolerance
+        if (qAbs(currentAlt - m_targetAltitude) < 2.0) {
+            qDebug() << "Park position reached!";
+            
+            // Stop any motion
+            stopParkMotion();
+            
+            // Mark as parked
+            m_status.isParked = true;
+            m_parkingInProgress = false;
+            m_status.currentOperation = "Parked";
+            m_parkMonitorTimer->stop();
+            
+            emit parkCompleted();
+        }
+        // Safety check - if we go too far, stop
+        else if (currentAlt < (m_targetAltitude - 5.0)) {
+            qWarning() << "Park altitude exceeded safe limit, stopping";
+            stopParkMotion();
+            m_parkingInProgress = false;
+            m_parkMonitorTimer->stop();
+            emit trackingError("Park altitude exceeded safe limit");
+        }
+    }
+    else if (m_unparkingInProgress) {
+        // Check if we've reached unpark altitude (+60°)
+        // Allow 2° tolerance
+        if (qAbs(currentAlt - m_targetAltitude) < 2.0) {
+            qDebug() << "Unpark position reached!";
+            
+            // Stop any motion
+            stopParkMotion();
+            
+            // Now initialize the telescope
+            m_status.currentOperation = "Initializing";
+            qDebug() << "Starting telescope initialization...";
+            
+            // Initialize
+            initializeTelescope();
+            
+            // Wait a moment for initialization to start
+            QTimer::singleShot(2000, this, [this]() {
+                m_status.isParked = false;
+                m_unparkingInProgress = false;
+                m_status.currentOperation = "Idle";
+                m_parkMonitorTimer->stop();
+                
+                qDebug() << "Unpark completed";
+                emit unparkCompleted();
+            });
+        }
+        // Safety check - if we go too far, stop
+        else if (currentAlt > (m_targetAltitude + 5.0)) {
+            qWarning() << "Unpark altitude exceeded safe limit, stopping";
+            stopParkMotion();
+            m_unparkingInProgress = false;
+            m_parkMonitorTimer->stop();
+            emit trackingError("Unpark altitude exceeded safe limit");
+        }
+    }
+}
+
+void OriginBackend::stopParkMotion()
+{
+    qDebug() << "Stopping altitude motion";
+    
+    // Send Slew command with zero rates to stop
+    QJsonObject slewCommand;
+    slewCommand["AltRate"] = 0;
+    slewCommand["AzmRate"] = 0;
+    
+    sendCommand("Slew", "Mount", slewCommand);
+}
+
 bool OriginBackend::parkMount()
 {
     if (!isConnected()) {
+        qWarning() << "Cannot park - not connected";
         return false;
     }
 
-    sendCommand("Park", "Mount");
+    if (m_status.isParked) {
+        qDebug() << "Mount already parked";
+        return true;
+    }
+
+    const TelescopeData& data = m_dataProcessor->getData();
+    double currentAlt = radiansToDegrees(data.mount.altitude);
     
-    m_status.isParked = true;
+    qDebug() << "Parking telescope";
+    qDebug() << "Current altitude:" << currentAlt;
+    qDebug() << "Target altitude: -10°";
+    
+    // Stop tracking first
+    setTracking(false);
+    
+    // Set target altitude
+    m_targetAltitude = -10.0;
+    m_parkingInProgress = true;
+    m_status.isParked = false;
     m_status.currentOperation = "Parking";
+    
+    emit parkStarted();
+    
+    // Start slewing down (negative altitude rate)
+    // Rate is in degrees per second or similar unit
+    int altRate = -9;  // Negative to move down, using same rate as GUI
+    
+    QJsonObject slewCommand;
+    slewCommand["AltRate"] = altRate;
+    slewCommand["AzmRate"] = 0;  // No azimuth motion
+    
+    sendCommand("Slew", "Mount", slewCommand);
+    
+    // Start monitoring altitude
+    m_parkMonitorTimer->start();
+    
+    // Safety timeout - stop after 60 seconds regardless
+    QTimer::singleShot(60000, this, [this]() {
+        if (m_parkingInProgress) {
+            qWarning() << "Park timeout - stopping motion";
+            stopParkMotion();
+            m_parkingInProgress = false;
+            m_parkMonitorTimer->stop();
+            emit trackingError("Park operation timed out");
+        }
+    });
     
     return true;
 }
@@ -316,13 +456,52 @@ bool OriginBackend::parkMount()
 bool OriginBackend::unparkMount()
 {
     if (!isConnected()) {
+        qWarning() << "Cannot unpark - not connected";
         return false;
     }
 
-    sendCommand("Unpark", "Mount");
+    if (!m_status.isParked) {
+        qDebug() << "Mount not parked, skipping unpark";
+        return true;
+    }
+
+    const TelescopeData& data = m_dataProcessor->getData();
+    double currentAlt = radiansToDegrees(data.mount.altitude);
     
+    qDebug() << "Unparking telescope";
+    qDebug() << "Current altitude:" << currentAlt;
+    qDebug() << "Target altitude: +60°";
+    
+    // Set target altitude
+    m_targetAltitude = 60.0;
+    m_unparkingInProgress = true;
     m_status.isParked = false;
     m_status.currentOperation = "Unparking";
+    
+    emit unparkStarted();
+    
+    // Start slewing up (positive altitude rate)
+    int altRate = 9;  // Positive to move up, using same rate as GUI
+    
+    QJsonObject slewCommand;
+    slewCommand["AltRate"] = altRate;
+    slewCommand["AzmRate"] = 0;  // No azimuth motion
+    
+    sendCommand("Slew", "Mount", slewCommand);
+    
+    // Start monitoring altitude
+    m_parkMonitorTimer->start();
+    
+    // Safety timeout - stop after 90 seconds regardless
+    QTimer::singleShot(90000, this, [this]() {
+        if (m_unparkingInProgress) {
+            qWarning() << "Unpark timeout - stopping motion";
+            stopParkMotion();
+            m_unparkingInProgress = false;
+            m_parkMonitorTimer->stop();
+            emit trackingError("Unpark operation timed out");
+        }
+    });
     
     return true;
 }

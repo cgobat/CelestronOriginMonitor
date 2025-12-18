@@ -795,6 +795,53 @@ QWidget* TelescopeGUI::createMountTab() {
     mountLastUpdateLabel = new QLabel("-", tab);
     layout->addWidget(mountLastUpdateLabel, row++, 1);
     
+    // Add separator
+    QFrame* line = new QFrame(tab);
+    line->setFrameShape(QFrame::HLine);
+    line->setFrameShadow(QFrame::Sunken);
+    layout->addWidget(line, row++, 0, 1, 2);
+    
+    // Add Park/Unpark controls
+    QGroupBox *parkGroup = new QGroupBox("Park/Unpark Controls", tab);
+    QVBoxLayout *parkLayout = new QVBoxLayout(parkGroup);
+    
+    QLabel *parkInfoLabel = new QLabel("Park: Move to Alt -10° (safe storage position)\n"
+                                       "Unpark: Move to Alt +60° and initialize", parkGroup);
+    parkInfoLabel->setWordWrap(true);
+    parkInfoLabel->setStyleSheet("QLabel { color: gray; font-size: 10px; }");
+    parkLayout->addWidget(parkInfoLabel);
+    
+    QHBoxLayout *parkButtonLayout = new QHBoxLayout();
+    
+    QPushButton *parkButton = new QPushButton("Park Telescope", parkGroup);
+    parkButton->setToolTip("Move telescope to parked position (Alt: -10°)");
+    connect(parkButton, &QPushButton::clicked, this, [this]() {
+        if (originBackend->isConnected()) {
+            qDebug() << "Park button clicked";
+            originBackend->parkMount();
+        } else {
+            QMessageBox::warning(this, "Not Connected", 
+                               "Please connect to telescope first");
+        }
+    });
+    parkButtonLayout->addWidget(parkButton);
+    
+    QPushButton *unparkButton = new QPushButton("Unpark Telescope", parkGroup);
+    unparkButton->setToolTip("Move telescope to operational position (Alt: 60°) and initialize");
+    connect(unparkButton, &QPushButton::clicked, this, [this]() {
+        if (originBackend->isConnected()) {
+            qDebug() << "Unpark button clicked";
+            originBackend->unparkMount();
+        } else {
+            QMessageBox::warning(this, "Not Connected", 
+                               "Please connect to telescope first");
+        }
+    });
+    parkButtonLayout->addWidget(unparkButton);
+    
+    parkLayout->addLayout(parkButtonLayout);
+    layout->addWidget(parkGroup, row++, 0, 1, 2);
+    
     layout->setRowStretch(row, 1);
     return tab;
 }

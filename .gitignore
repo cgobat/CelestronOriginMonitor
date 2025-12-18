@@ -7,3 +7,4 @@ Makefile.Debug
 Makefile.Release
 build/CelestronOriginMonitor.app/
 build/obj/
+build/moc/

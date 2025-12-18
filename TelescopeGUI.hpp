@@ -32,6 +32,8 @@ class OriginBackend;
 #include <QScrollBar>
 #include <QMenuBar>
 #include <QFileDialog>
+#include <QMessageBox>
+#include <QFrame>
 
 #include "TelescopeDataProcessor.hpp"
 #include "CommandInterface.hpp"
