@@ -312,6 +312,16 @@ bool OriginBackend::abortMotion()
 // PARK AND UNPARK IMPLEMENTATION using Slew command
 // ============================================================================
 
+void  OriginBackend::speed(
+		  int altRate)  // Negative to move down, using same rate as GUI
+{
+    QJsonObject slewCommand;
+    slewCommand["AltRate"] = altRate;
+    slewCommand["AzmRate"] = 0;  // No azimuth motion
+    
+    sendCommand("Slew", "Mount", slewCommand);
+}
+
 void OriginBackend::monitorParkProgress()
 {
     const TelescopeData& data = m_dataProcessor->getData();
@@ -336,6 +346,10 @@ void OriginBackend::monitorParkProgress()
             
             emit parkCompleted();
         }
+	else
+	  {
+	    //	    speed(fmax(-9.0, m_targetAltitude - currentAlt));
+	  }
     }
     else if (m_unparkingInProgress) {
         // Check if we've reached unpark altitude (+60°)
@@ -364,6 +378,10 @@ void OriginBackend::monitorParkProgress()
                 emit unparkCompleted();
             });
         }
+	else
+	  {
+	    //	    speed(fmin(9.0, m_targetAltitude - currentAlt));
+	  }
     }
 }
 
