@@ -173,9 +173,10 @@ void TelescopeDataProcessor::updateDewHeaterStatus(const QJsonObject &obj) {
 }
 
 void TelescopeDataProcessor::updateOrientationStatus(const QJsonObject &obj) {
-    telescopeData.orientation.altitude = obj["Altitude"].toInt();
+    telescopeData.orientation.altitude = obj["Altitude"].toDouble();
     
     telescopeData.orientationLastUpdate = QDateTime::currentDateTime();
+    qDebug() << "orient: " << telescopeData.orientation.altitude;
 }
 
 void TelescopeDataProcessor::updateTaskControllerStatus(const QJsonObject &obj) {

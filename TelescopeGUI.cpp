@@ -346,7 +346,7 @@ void TelescopeGUI::updateMountDisplay() {
     mountAzimuthLabel->setText(QString::number(data.mount.azimuth));
     mountAzimuthErrorLabel->setText(QString::number(data.mount.azimuthError));
     mountAltitudeLabel->setText(QString::number(data.mount.altitude));
-    mountAltitudeErrorLabel->setText(QString::number(data.mount.altitudeError));
+    mountAltitudeErrorLabel->setText(QString::number(data.orientation.altitude));
 }
 
 void TelescopeGUI::updateCameraDisplay() {
