@@ -77,7 +77,7 @@ public:
     bool unparkMount();         // Unpark using MoveAxis and altitude monitoring
     bool initializeTelescope();
     bool moveDirection(int direction, int speed);
-
+    void speed(int altRate);
     // Tracking
     bool setTracking(bool enabled);
     bool isTracking() const;

@@ -312,18 +312,27 @@ bool OriginBackend::abortMotion()
 // PARK AND UNPARK IMPLEMENTATION using Slew command
 // ============================================================================
 
+void  OriginBackend::speed(
+		  int altRate)  // Negative to move down, using same rate as GUI
+{
+    QJsonObject slewCommand;
+    slewCommand["AltRate"] = altRate;
+    slewCommand["AzmRate"] = 0;  // No azimuth motion
+    
+    sendCommand("Slew", "Mount", slewCommand);
+}
+
 void OriginBackend::monitorParkProgress()
 {
     const TelescopeData& data = m_dataProcessor->getData();
-    double currentAlt = radiansToDegrees(data.mount.altitude);
+    double currentAlt = data.orientation.altitude;
     
     qDebug() << "Park monitoring - Target:" << m_targetAltitude 
              << "Current:" << currentAlt;
     
     if (m_parkingInProgress) {
         // Check if we've reached park altitude (-10°)
-        // Allow 2° tolerance
-        if (qAbs(currentAlt - m_targetAltitude) < 2.0) {
+        if (currentAlt < m_targetAltitude) {
             qDebug() << "Park position reached!";
             
             // Stop any motion
@@ -337,19 +346,15 @@ void OriginBackend::monitorParkProgress()
             
             emit parkCompleted();
         }
-        // Safety check - if we go too far, stop
-        else if (currentAlt < (m_targetAltitude - 5.0)) {
-            qWarning() << "Park altitude exceeded safe limit, stopping";
-            stopParkMotion();
-            m_parkingInProgress = false;
-            m_parkMonitorTimer->stop();
-            emit trackingError("Park altitude exceeded safe limit");
-        }
+	else
+	  {
+	    //	    speed(fmax(-9.0, m_targetAltitude - currentAlt));
+	  }
     }
     else if (m_unparkingInProgress) {
         // Check if we've reached unpark altitude (+60°)
         // Allow 2° tolerance
-        if (qAbs(currentAlt - m_targetAltitude) < 2.0) {
+        if (currentAlt > m_targetAltitude) {
             qDebug() << "Unpark position reached!";
             
             // Stop any motion
@@ -373,14 +378,10 @@ void OriginBackend::monitorParkProgress()
                 emit unparkCompleted();
             });
         }
-        // Safety check - if we go too far, stop
-        else if (currentAlt > (m_targetAltitude + 5.0)) {
-            qWarning() << "Unpark altitude exceeded safe limit, stopping";
-            stopParkMotion();
-            m_unparkingInProgress = false;
-            m_parkMonitorTimer->stop();
-            emit trackingError("Unpark altitude exceeded safe limit");
-        }
+	else
+	  {
+	    //	    speed(fmin(9.0, m_targetAltitude - currentAlt));
+	  }
     }
 }
 
@@ -409,7 +410,7 @@ bool OriginBackend::parkMount()
     }
 
     const TelescopeData& data = m_dataProcessor->getData();
-    double currentAlt = radiansToDegrees(data.mount.altitude);
+    double currentAlt = data.orientation.altitude;
     
     qDebug() << "Parking telescope";
     qDebug() << "Current altitude:" << currentAlt;
@@ -466,7 +467,7 @@ bool OriginBackend::unparkMount()
     }
 
     const TelescopeData& data = m_dataProcessor->getData();
-    double currentAlt = radiansToDegrees(data.mount.altitude);
+    double currentAlt = data.orientation.altitude;
     
     qDebug() << "Unparking telescope";
     qDebug() << "Current altitude:" << currentAlt;
