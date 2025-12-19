@@ -450,69 +450,232 @@ void TelescopeGUI::updateTimeDisplay() {
 }
 
 void TelescopeGUI::setupUI() {
-    QMenuBar* menuBar = new QMenuBar(this);
-    setMenuBar(menuBar);
-    
-    // Tools menu
-    QMenu* toolsMenu = menuBar->addMenu("Tools");
-    
-    QAction* replayLogsAction = new QAction("Replay WebSocket Logs...", this);
-    replayLogsAction->setShortcut(QKeySequence("Ctrl+R"));
-    connect(replayLogsAction, &QAction::triggered, this, &TelescopeGUI::showLogReplay);
-    toolsMenu->addAction(replayLogsAction);
-  
+    // Create central widget
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
     
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
     
-    // Discovery and connection panel
-    QGroupBox *discoveryBox = new QGroupBox("Telescope Discovery and Connection", centralWidget);
-    QVBoxLayout *discoveryLayout = new QVBoxLayout(discoveryBox);
+    // =================================================================
+    // TOP: Connection Panel (always visible)
+    // =================================================================
+    QGroupBox *connectionGroup = new QGroupBox("Telescope Connection");
+    QVBoxLayout *connectionLayout = new QVBoxLayout(connectionGroup);
     
-    // Status and controls
-    QHBoxLayout *controlLayout = new QHBoxLayout();
+    telescopeListWidget = new QListWidget();
+    telescopeListWidget->setMaximumHeight(100); // Compact on iOS
     
-    QPushButton *discoverButton = new QPushButton("Discover Telescopes", discoveryBox);
+    QHBoxLayout *discoveryButtons = new QHBoxLayout();
+    QPushButton *discoverButton = new QPushButton("Discover");
+    QPushButton *stopButton = new QPushButton("Stop");
+    connectButton = new QPushButton("Connect");
+    connectButton->setEnabled(false);
+    
+    // iOS-friendly button sizes
+    discoverButton->setMinimumHeight(44);
+    stopButton->setMinimumHeight(44);
+    connectButton->setMinimumHeight(44);
+    
+    discoveryButtons->addWidget(discoverButton);
+    discoveryButtons->addWidget(stopButton);
+    discoveryButtons->addWidget(connectButton);
+    
+    statusLabel = new QLabel("Not connected");
+    statusLabel->setAlignment(Qt::AlignCenter);
+    statusLabel->setStyleSheet("font-weight: bold; padding: 8px;");
+    
+    connectionLayout->addWidget(telescopeListWidget);
+    connectionLayout->addLayout(discoveryButtons);
+    connectionLayout->addWidget(statusLabel);
+    
+    // Connect signals
     connect(discoverButton, &QPushButton::clicked, this, &TelescopeGUI::startDiscovery);
-    controlLayout->addWidget(discoverButton);
-    
-    connectButton = new QPushButton("Connect", discoveryBox);
+    connect(stopButton, &QPushButton::clicked, this, &TelescopeGUI::stopDiscovery);
     connect(connectButton, &QPushButton::clicked, this, &TelescopeGUI::connectToSelectedTelescope);
-    controlLayout->addWidget(connectButton);
+    connect(telescopeListWidget, &QListWidget::itemSelectionChanged, 
+            this, [this]() { connectButton->setEnabled(telescopeListWidget->currentItem() != nullptr); });
     
-    statusLabel = new QLabel("Ready to discover telescopes", discoveryBox);
-    controlLayout->addWidget(statusLabel, 1); // Give it a stretch factor
+    mainLayout->addWidget(connectionGroup);
     
-    discoveryLayout->addLayout(controlLayout);
+    // =================================================================
+    // MAIN: Hierarchical Tab Structure (3 top-level tabs)
+    // =================================================================
+    QTabWidget *mainTabs = new QTabWidget();
+    mainTabs->setTabPosition(QTabWidget::South); // iOS-style bottom tabs
+    mainTabs->setDocumentMode(true); // Cleaner look on iOS
     
-    // Telescope list
-    telescopeListWidget = new QListWidget(discoveryBox);
-    discoveryLayout->addWidget(telescopeListWidget);
+    // ─────────────────────────────────────────────────────────────────
+    // TAB 1: STATUS (Mount, Environment, System)
+    // ─────────────────────────────────────────────────────────────────
+    QWidget *statusPage = new QWidget();
+    QVBoxLayout *statusPageLayout = new QVBoxLayout(statusPage);
+    statusPageLayout->setContentsMargins(0, 0, 0, 0);
     
-    mainLayout->addWidget(discoveryBox);
+    QTabWidget *statusSubTabs = new QTabWidget();
+    statusSubTabs->setTabPosition(QTabWidget::North); // Sub-tabs at top
+    statusSubTabs->addTab(createMountTab(), "Mount");
+    statusSubTabs->addTab(createEnvironmentTab(), "Environment");
+    statusSubTabs->addTab(createSystemTab(), "System"); // New: combines Disk + Battery
     
-    // Tab widget for different categories
-    QTabWidget *tabWidget = new QTabWidget(centralWidget);
+    statusPageLayout->addWidget(statusSubTabs);
+    mainTabs->addTab(statusPage, "📊 Status");
     
-    // Create tabs
-    tabWidget->addTab(createMountTab(), "Mount");
-    tabWidget->addTab(createCameraTab(), "Camera");
-    tabWidget->addTab(createFocuserTab(), "Focuser");
-    tabWidget->addTab(createEnvironmentTab(), "Environment");
-    tabWidget->addTab(createImageTab(), "Show Image");
-    tabWidget->addTab(createDiskTab(), "Disk");
-    tabWidget->addTab(createDewHeaterTab(), "Dew Heater");
-    tabWidget->addTab(createSlewAndImageTab(), "Slew & Image");   
-    tabWidget->addTab(createTaskControllerTab(), "Task Controller");   
-    tabWidget->addTab(createCommandTab(), "Commands");   
+    // ─────────────────────────────────────────────────────────────────
+    // TAB 2: IMAGING (Camera, Focuser, Dew Heater, Preview)
+    // ─────────────────────────────────────────────────────────────────
+    QWidget *imagingPage = new QWidget();
+    QVBoxLayout *imagingPageLayout = new QVBoxLayout(imagingPage);
+    imagingPageLayout->setContentsMargins(0, 0, 0, 0);
     
-    mainLayout->addWidget(tabWidget);
+    QTabWidget *imagingSubTabs = new QTabWidget();
+    imagingSubTabs->setTabPosition(QTabWidget::North);
+    imagingSubTabs->addTab(createCameraTab(), "Camera");
+    imagingSubTabs->addTab(createFocuserTab(), "Focuser");
+    imagingSubTabs->addTab(createDewHeaterTab(), "Dew Heater");
+    imagingSubTabs->addTab(createImageTab(), "Preview");
+    
+    imagingPageLayout->addWidget(imagingSubTabs);
+    mainTabs->addTab(imagingPage, "📷 Imaging");
+    
+    // ─────────────────────────────────────────────────────────────────
+    // TAB 3: CONTROL (Slew & Image, Task Monitor, Commands)
+    // ─────────────────────────────────────────────────────────────────
+    QWidget *controlPage = new QWidget();
+    QVBoxLayout *controlPageLayout = new QVBoxLayout(controlPage);
+    controlPageLayout->setContentsMargins(0, 0, 0, 0);
+    
+    QTabWidget *controlSubTabs = new QTabWidget();
+    controlSubTabs->setTabPosition(QTabWidget::North);
+    controlSubTabs->addTab(createSlewAndImageTab(), "Slew & Image");
+    controlSubTabs->addTab(createTaskControllerTab(), "Task Monitor");
+    controlSubTabs->addTab(createCommandTab(), "Commands");
+    
+    controlPageLayout->addWidget(controlSubTabs);
+    mainTabs->addTab(controlPage, "🎮 Control");
+    
+    // =================================================================
+    // Add main tabs to layout
+    // =================================================================
+    mainLayout->addWidget(mainTabs);
+    
+    // =================================================================
+    // MENU BAR
+    // =================================================================
+    QMenuBar *menuBar = new QMenuBar(this);
+    setMenuBar(menuBar);
+    
+    QMenu *fileMenu = menuBar->addMenu("File");
+    QAction *logReplayAction = fileMenu->addAction("Log Replay...");
+    connect(logReplayAction, &QAction::triggered, this, &TelescopeGUI::showLogReplay);
+    
+    QAction *exitAction = fileMenu->addAction("Exit");
+    connect(exitAction, &QAction::triggered, this, &QWidget::close);
 }
 
 QWidget* TelescopeGUI::createCommandTab() {
     CommandInterface *commandInterface = new CommandInterface(this, this);
     return commandInterface;
+}
+
+// =================================================================
+// NEW: createSystemTab() - Combines Disk + Battery info
+// =================================================================
+QWidget* TelescopeGUI::createSystemTab() {
+    QWidget *tab = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(tab);
+    layout->setSpacing(10);
+    
+    // ─────────────────────────────────────────────────────────────────
+    // BATTERY Section
+    // ─────────────────────────────────────────────────────────────────
+    QGroupBox *batteryGroup = new QGroupBox("Battery Status");
+    QGridLayout *batteryGrid = new QGridLayout(batteryGroup);
+    
+    int row = 0;
+    batteryGrid->addWidget(new QLabel("Level:"), row, 0);
+    mountBatteryLevelLabel = new QLabel("--");
+    batteryGrid->addWidget(mountBatteryLevelLabel, row++, 1);
+    
+    batteryGrid->addWidget(new QLabel("Voltage:"), row, 0);
+    mountBatteryVoltageLabel = new QLabel("--");
+    batteryGrid->addWidget(mountBatteryVoltageLabel, row++, 1);
+    
+    batteryGrid->addWidget(new QLabel("Current:"), row, 0);
+    mountBatteryCurrentLabel = new QLabel("--");
+    batteryGrid->addWidget(mountBatteryCurrentLabel, row++, 1);
+    
+    batteryGrid->addWidget(new QLabel("Charger:"), row, 0);
+    mountChargerStatusLabel = new QLabel("--");
+    batteryGrid->addWidget(mountChargerStatusLabel, row++, 1);
+    
+    layout->addWidget(batteryGroup);
+    
+    // ─────────────────────────────────────────────────────────────────
+    // DISK Section
+    // ─────────────────────────────────────────────────────────────────
+    QGroupBox *diskGroup = new QGroupBox("Storage");
+    QGridLayout *diskGrid = new QGridLayout(diskGroup);
+    
+    row = 0;
+    diskGrid->addWidget(new QLabel("Capacity:"), row, 0);
+    diskCapacityLabel = new QLabel("--");
+    diskGrid->addWidget(diskCapacityLabel, row++, 1);
+    
+    diskGrid->addWidget(new QLabel("Used:"), row, 0);
+    diskUsedLabel = new QLabel("--");
+    diskGrid->addWidget(diskUsedLabel, row++, 1);
+    
+    diskGrid->addWidget(new QLabel("Free:"), row, 0);
+    diskFreeLabel = new QLabel("--");
+    diskGrid->addWidget(diskFreeLabel, row++, 1);
+    
+    diskGrid->addWidget(new QLabel("Usage:"), row, 0);
+    diskLevelLabel = new QLabel("--");
+    diskGrid->addWidget(diskLevelLabel, row++, 1);
+    
+    diskUsageBar = new QProgressBar();
+    diskGrid->addWidget(diskUsageBar, row++, 0, 1, 2);
+    
+    diskGrid->addWidget(new QLabel("Last Update:"), row, 0);
+    diskLastUpdateLabel = new QLabel("--");
+    diskGrid->addWidget(diskLastUpdateLabel, row++, 1);
+    
+    layout->addWidget(diskGroup);
+    
+    // ─────────────────────────────────────────────────────────────────
+    // TIME & LOCATION Section (from Mount data)
+    // ─────────────────────────────────────────────────────────────────
+    QGroupBox *locationGroup = new QGroupBox("Location & Time");
+    QGridLayout *locationGrid = new QGridLayout(locationGroup);
+    
+    row = 0;
+    locationGrid->addWidget(new QLabel("Time:"), row, 0);
+    mountTimeLabel = new QLabel("--");
+    locationGrid->addWidget(mountTimeLabel, row++, 1);
+    
+    locationGrid->addWidget(new QLabel("Date:"), row, 0);
+    mountDateLabel = new QLabel("--");
+    locationGrid->addWidget(mountDateLabel, row++, 1);
+    
+    locationGrid->addWidget(new QLabel("Time Zone:"), row, 0);
+    mountTimeZoneLabel = new QLabel("--");
+    locationGrid->addWidget(mountTimeZoneLabel, row++, 1);
+    
+    locationGrid->addWidget(new QLabel("Latitude:"), row, 0);
+    mountLatitudeLabel = new QLabel("--");
+    locationGrid->addWidget(mountLatitudeLabel, row++, 1);
+    
+    locationGrid->addWidget(new QLabel("Longitude:"), row, 0);
+    mountLongitudeLabel = new QLabel("--");
+    locationGrid->addWidget(mountLongitudeLabel, row++, 1);
+    
+    layout->addWidget(locationGroup);
+    
+    layout->addStretch();
+    
+    return tab;
 }
 
 // ============================================================================

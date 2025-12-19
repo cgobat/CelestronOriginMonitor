@@ -225,6 +225,7 @@ private:
     QWidget* createCommandTab();
     QWidget* createSlewAndImageTab();
     QWidget* createTaskControllerTab();
+    QWidget* createSystemTab();            // NEW: Combines Disk + Battery + Location
   
     // Class members
     TelescopeDataProcessor *dataProcessor;
