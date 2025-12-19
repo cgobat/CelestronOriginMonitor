@@ -9,3 +9,4 @@ Makefile.Release
 build/CelestronOriginMonitor.app/
 build/obj/
 build/moc/
+build_ios_device_release/
