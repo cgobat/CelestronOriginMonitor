@@ -1,5 +1,4 @@
-# TelescopeMonitor_iOS.pro
-# Fixed version with renamed resource folder
+# TelescopeMonitor_iOS.pro - With App Icons Support
 
 QT += core gui widgets network websockets
 
@@ -13,29 +12,35 @@ CONFIG += c++17
 # iOS specific configuration
 ios {
     # Minimum iOS version
-    QMAKE_IOS_DEPLOYMENT_TARGET = 13.0
+    QMAKE_IOS_DEPLOYMENT_TARGET = 16.0
     
     # Bundle identifier - CHANGE THIS to your own!
-    QMAKE_TARGET_BUNDLE_PREFIX = com.astronomy
+    QMAKE_TARGET_BUNDLE_PREFIX = uk.kimmitt
     
     # Device family: 1=iPhone, 2=iPad, 1,2=Universal
     QMAKE_APPLE_TARGETED_DEVICE_FAMILY = 1,2
     
     # ==========================================
-    # CRITICAL FIX FOR INFO.PLIST
+    # INFO.PLIST CONFIGURATION
     # ==========================================
     
     # Info.plist at project root
     QMAKE_INFO_PLIST = $$PWD/Info.plist
     
-    # Also set it for Xcode build system
+    # Pass to Xcode build system
     info_plist.name = INFOPLIST_FILE
     info_plist.value = $$PWD/Info.plist
     QMAKE_MAC_XCODE_SETTINGS += info_plist
     
     # ==========================================
-    # FOLDER RENAMED: ios -> ios_resources
-    # This prevents conflict with <ios> C++ header
+    # APP ICONS (Asset Catalog)
+    # ==========================================
+    
+    # Reference the AppIcon asset catalog
+    QMAKE_ASSET_CATALOGS += ios_resources/AppIcon.appiconset
+    
+    # ==========================================
+    # LAUNCH SCREEN
     # ==========================================
     
     # Launch Screen
@@ -43,10 +48,9 @@ ios {
         QMAKE_IOS_LAUNCH_SCREEN = $$PWD/ios_resources/LaunchScreen.storyboard
     }
     
-    # Assets catalog
-    exists($$PWD/ios_resources/Assets.xcassets) {
-        QMAKE_ASSET_CATALOGS += $$PWD/ios_resources/Assets.xcassets
-    }
+    # ==========================================
+    # OTHER RESOURCES
+    # ==========================================
     
     # Bundle SPICE kernel data files (if they exist)
     exists($$PWD/spice_kernels) {
@@ -56,11 +60,19 @@ ios {
         QMAKE_BUNDLE_DATA += spice_kernels
     }
     
+    # ==========================================
+    # COMPILER FLAGS
+    # ==========================================
+    
     # Enable ARC
     QMAKE_CXXFLAGS += -fobjc-arc
     
-    # Fix header search paths
+    # Fix warnings
     QMAKE_CXXFLAGS += -Wno-unknown-pragmas
+    
+    # ==========================================
+    # XCODE BUILD SETTINGS
+    # ==========================================
     
     # Enable automatic signing
     automatic_signing.name = "CODE_SIGN_STYLE"
@@ -74,12 +86,6 @@ ios {
 # macOS specific
 macx:!ios {
     QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.15
-}
-
-# Don't define Q_OS_IOS - Qt already defines it
-# Removes the macro redefinition warning
-ios {
-    # Q_OS_IOS is automatically defined by Qt
 }
 
 # Core application files

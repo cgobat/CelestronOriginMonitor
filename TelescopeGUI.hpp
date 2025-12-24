@@ -155,6 +155,10 @@ private slots:
     void onSnapshotDownloaded(const QString& localPath);
     void onSnapshotDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
 
+signals:
+    void telescopeConnected();
+    void telescopeDisconnected();
+
 private:
     // Task Controller tab widgets
     QLabel *taskStateLabel;
@@ -215,6 +219,7 @@ private:
     QList<double> focusScores;
 
     // Tab creation methods
+    QWidget* createConnectionTab();      // NEW: Dedicated connection tab
     QWidget* createMountTab();
     QWidget* createCameraTab();
     QWidget* createFocuserTab();

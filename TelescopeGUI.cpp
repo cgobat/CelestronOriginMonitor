@@ -310,12 +310,14 @@ void TelescopeGUI::connectToSelectedTelescope() {
 void TelescopeGUI::onWebSocketConnected() {
     statusLabel->setText("Connected to telescope!");
     connectButton->setText("Disconnect");
+    emit telescopeConnected();
 }
 
 void TelescopeGUI::onWebSocketDisconnected() {
     statusLabel->setText("Disconnected from telescope");
     connectButton->setText("Connect");
     connectedIpAddress = "";
+    emit telescopeDisconnected();
 }
 
 void TelescopeGUI::onTextMessageReceived(const QString &message) {
@@ -448,6 +450,8 @@ void TelescopeGUI::updateTimeDisplay() {
         updateLastUpdateLabel(dewHeaterLastUpdateLabel, data.dewHeaterLastUpdate);
     }
 }
+// TelescopeGUI.cpp - IMPROVED setupUI() with Connection as separate tab
+// This gives much more room for Status/Imaging/Control tabs
 
 void TelescopeGUI::setupUI() {
     // Create central widget
@@ -459,71 +463,35 @@ void TelescopeGUI::setupUI() {
     mainLayout->setSpacing(0);
     
     // =================================================================
-    // TOP: Connection Panel (always visible)
-    // =================================================================
-    QGroupBox *connectionGroup = new QGroupBox("Telescope Connection");
-    QVBoxLayout *connectionLayout = new QVBoxLayout(connectionGroup);
-    
-    telescopeListWidget = new QListWidget();
-    telescopeListWidget->setMaximumHeight(100); // Compact on iOS
-    
-    QHBoxLayout *discoveryButtons = new QHBoxLayout();
-    QPushButton *discoverButton = new QPushButton("Discover");
-    QPushButton *stopButton = new QPushButton("Stop");
-    connectButton = new QPushButton("Connect");
-    connectButton->setEnabled(false);
-    
-    // iOS-friendly button sizes
-    discoverButton->setMinimumHeight(44);
-    stopButton->setMinimumHeight(44);
-    connectButton->setMinimumHeight(44);
-    
-    discoveryButtons->addWidget(discoverButton);
-    discoveryButtons->addWidget(stopButton);
-    discoveryButtons->addWidget(connectButton);
-    
-    statusLabel = new QLabel("Not connected");
-    statusLabel->setAlignment(Qt::AlignCenter);
-    statusLabel->setStyleSheet("font-weight: bold; padding: 8px;");
-    
-    connectionLayout->addWidget(telescopeListWidget);
-    connectionLayout->addLayout(discoveryButtons);
-    connectionLayout->addWidget(statusLabel);
-    
-    // Connect signals
-    connect(discoverButton, &QPushButton::clicked, this, &TelescopeGUI::startDiscovery);
-    connect(stopButton, &QPushButton::clicked, this, &TelescopeGUI::stopDiscovery);
-    connect(connectButton, &QPushButton::clicked, this, &TelescopeGUI::connectToSelectedTelescope);
-    connect(telescopeListWidget, &QListWidget::itemSelectionChanged, 
-            this, [this]() { connectButton->setEnabled(telescopeListWidget->currentItem() != nullptr); });
-    
-    mainLayout->addWidget(connectionGroup);
-    
-    // =================================================================
-    // MAIN: Hierarchical Tab Structure (3 top-level tabs)
+    // MAIN: 4 Top-Level Tabs (Connection is now Tab 1)
     // =================================================================
     QTabWidget *mainTabs = new QTabWidget();
     mainTabs->setTabPosition(QTabWidget::South); // iOS-style bottom tabs
     mainTabs->setDocumentMode(true); // Cleaner look on iOS
     
     // ─────────────────────────────────────────────────────────────────
-    // TAB 1: STATUS (Mount, Environment, System)
+    // TAB 1: CONNECTION (default/first tab)
+    // ─────────────────────────────────────────────────────────────────
+    mainTabs->addTab(createConnectionTab(), "🔌Cnct");
+    
+    // ─────────────────────────────────────────────────────────────────
+    // TAB 2: STATUS (Mount, Environment, System)
     // ─────────────────────────────────────────────────────────────────
     QWidget *statusPage = new QWidget();
     QVBoxLayout *statusPageLayout = new QVBoxLayout(statusPage);
     statusPageLayout->setContentsMargins(0, 0, 0, 0);
     
     QTabWidget *statusSubTabs = new QTabWidget();
-    statusSubTabs->setTabPosition(QTabWidget::North); // Sub-tabs at top
+    statusSubTabs->setTabPosition(QTabWidget::North);
     statusSubTabs->addTab(createMountTab(), "Mount");
     statusSubTabs->addTab(createEnvironmentTab(), "Environment");
-    statusSubTabs->addTab(createSystemTab(), "System"); // New: combines Disk + Battery
+    statusSubTabs->addTab(createSystemTab(), "System");
     
     statusPageLayout->addWidget(statusSubTabs);
-    mainTabs->addTab(statusPage, "📊 Status");
+    mainTabs->addTab(statusPage, "📊Stat");
     
     // ─────────────────────────────────────────────────────────────────
-    // TAB 2: IMAGING (Camera, Focuser, Dew Heater, Preview)
+    // TAB 3: IMAGING (Camera, Focuser, Dew Heater, Preview)
     // ─────────────────────────────────────────────────────────────────
     QWidget *imagingPage = new QWidget();
     QVBoxLayout *imagingPageLayout = new QVBoxLayout(imagingPage);
@@ -537,10 +505,10 @@ void TelescopeGUI::setupUI() {
     imagingSubTabs->addTab(createImageTab(), "Preview");
     
     imagingPageLayout->addWidget(imagingSubTabs);
-    mainTabs->addTab(imagingPage, "📷 Imaging");
+    mainTabs->addTab(imagingPage, "📷Image");
     
     // ─────────────────────────────────────────────────────────────────
-    // TAB 3: CONTROL (Slew & Image, Task Monitor, Commands)
+    // TAB 4: CONTROL (Slew & Image, Task Monitor, Commands)
     // ─────────────────────────────────────────────────────────────────
     QWidget *controlPage = new QWidget();
     QVBoxLayout *controlPageLayout = new QVBoxLayout(controlPage);
@@ -553,12 +521,19 @@ void TelescopeGUI::setupUI() {
     controlSubTabs->addTab(createCommandTab(), "Commands");
     
     controlPageLayout->addWidget(controlSubTabs);
-    mainTabs->addTab(controlPage, "🎮 Control");
+    mainTabs->addTab(controlPage, "🎮Ctrl");
     
     // =================================================================
     // Add main tabs to layout
     // =================================================================
     mainLayout->addWidget(mainTabs);
+    
+    // =================================================================
+    // OPTIONAL: Auto-switch to Status tab after connection
+    // =================================================================
+    connect(this, &TelescopeGUI::telescopeConnected, this, [mainTabs]() {
+        mainTabs->setCurrentIndex(1); // Switch to Status tab after connecting
+    });
     
     // =================================================================
     // MENU BAR
@@ -572,6 +547,231 @@ void TelescopeGUI::setupUI() {
     
     QAction *exitAction = fileMenu->addAction("Exit");
     connect(exitAction, &QAction::triggered, this, &QWidget::close);
+}
+
+// =================================================================
+// NEW: createConnectionTab() - Dedicated connection interface
+// =================================================================
+QWidget* TelescopeGUI::createConnectionTab() {
+    QWidget *tab = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(10, 10, 10, 10);
+    layout->setSpacing(15);
+    
+    // ─────────────────────────────────────────────────────────────────
+    // CONNECTION STATUS (always visible at top)
+    // ─────────────────────────────────────────────────────────────────
+    statusLabel = new QLabel("Not connected");
+    statusLabel->setAlignment(Qt::AlignCenter);
+    statusLabel->setStyleSheet(
+        "font-size: 16px; "
+        "font-weight: bold; "
+        "padding: 12px; "
+        "background-color: #f0f0f0; "
+        "border-radius: 6px;"
+    );
+    layout->addWidget(statusLabel);
+    
+    // ─────────────────────────────────────────────────────────────────
+    // DISCOVERY SECTION
+    // ─────────────────────────────────────────────────────────────────
+    QGroupBox *discoveryGroup = new QGroupBox("Discover Telescopes");
+    QVBoxLayout *discoveryLayout = new QVBoxLayout(discoveryGroup);
+    
+    // Discovery buttons
+    QHBoxLayout *discoveryButtons = new QHBoxLayout();
+    QPushButton *discoverButton = new QPushButton("Start Discovery");
+    QPushButton *stopButton = new QPushButton("Stop Discovery");
+    
+    // iOS-friendly button sizes
+    discoverButton->setMinimumHeight(44);
+    stopButton->setMinimumHeight(44);
+    
+    discoverButton->setStyleSheet("font-size: 14px; font-weight: bold;");
+    stopButton->setStyleSheet("font-size: 14px;");
+    
+    discoveryButtons->addWidget(discoverButton);
+    discoveryButtons->addWidget(stopButton);
+    discoveryLayout->addLayout(discoveryButtons);
+    
+    // Discovered telescopes list
+    QLabel *listLabel = new QLabel("Discovered Telescopes:");
+    listLabel->setStyleSheet("font-weight: bold; margin-top: 10px;");
+    discoveryLayout->addWidget(listLabel);
+    
+    telescopeListWidget = new QListWidget();
+    telescopeListWidget->setMinimumHeight(150);
+    telescopeListWidget->setStyleSheet(
+        "QListWidget { "
+        "    font-size: 14px; "
+        "    padding: 5px; "
+        "} "
+        "QListWidget::item { "
+        "    padding: 10px; "
+        "    border-bottom: 1px solid #e0e0e0; "
+        "} "
+        "QListWidget::item:selected { "
+        "    background-color: #007AFF; "
+        "    color: white; "
+        "}"
+    );
+    discoveryLayout->addWidget(telescopeListWidget);
+    
+    layout->addWidget(discoveryGroup);
+    
+    // ─────────────────────────────────────────────────────────────────
+    // CONNECTION SECTION
+    // ─────────────────────────────────────────────────────────────────
+    QGroupBox *connectionGroup = new QGroupBox("Connection");
+    QVBoxLayout *connectionLayout = new QVBoxLayout(connectionGroup);
+    
+    // Connect button (large and prominent)
+    connectButton = new QPushButton("Connect to Selected Telescope");
+    connectButton->setEnabled(false);
+    connectButton->setMinimumHeight(50);
+    connectButton->setStyleSheet(
+        "QPushButton { "
+        "    font-size: 16px; "
+        "    font-weight: bold; "
+        "    background-color: #007AFF; "
+        "    color: white; "
+        "    border-radius: 8px; "
+        "    padding: 12px; "
+        "} "
+        "QPushButton:disabled { "
+        "    background-color: #cccccc; "
+        "    color: #888888; "
+        "} "
+        "QPushButton:pressed { "
+        "    background-color: #0051D5; "
+        "}"
+    );
+    connectionLayout->addWidget(connectButton);
+    
+    // Disconnect button
+    QPushButton *disconnectButton = new QPushButton("Disconnect");
+    disconnectButton->setMinimumHeight(44);
+    disconnectButton->setEnabled(false);
+    disconnectButton->setStyleSheet(
+        "QPushButton { "
+        "    font-size: 14px; "
+        "    background-color: #FF3B30; "
+        "    color: white; "
+        "    border-radius: 6px; "
+        "    padding: 10px; "
+        "} "
+        "QPushButton:disabled { "
+        "    background-color: #cccccc; "
+        "    color: #888888; "
+        "}"
+    );
+    connectionLayout->addWidget(disconnectButton);
+    
+    layout->addWidget(connectionGroup);
+    
+    // ─────────────────────────────────────────────────────────────────
+    // CONNECTION INFO (shows when connected)
+    // ─────────────────────────────────────────────────────────────────
+    QGroupBox *infoGroup = new QGroupBox("Connection Details");
+    infoGroup->setVisible(false); // Hidden until connected
+    QGridLayout *infoGrid = new QGridLayout(infoGroup);
+    
+    infoGrid->addWidget(new QLabel("IP Address:"), 0, 0);
+    QLabel *connectedIpLabel = new QLabel("--");
+    connectedIpLabel->setStyleSheet("font-weight: bold;");
+    infoGrid->addWidget(connectedIpLabel, 0, 1);
+    
+    infoGrid->addWidget(new QLabel("Model:"), 1, 0);
+    QLabel *telescopeModelLabel = new QLabel("--");
+    telescopeModelLabel->setStyleSheet("font-weight: bold;");
+    infoGrid->addWidget(telescopeModelLabel, 1, 1);
+    
+    infoGrid->addWidget(new QLabel("Status:"), 2, 0);
+    QLabel *connectionStatusLabel = new QLabel("--");
+    connectionStatusLabel->setStyleSheet("font-weight: bold; color: #34C759;");
+    infoGrid->addWidget(connectionStatusLabel, 2, 1);
+    
+    layout->addWidget(infoGroup);
+    
+    // ─────────────────────────────────────────────────────────────────
+    // HELP TEXT
+    // ─────────────────────────────────────────────────────────────────
+    QLabel *helpLabel = new QLabel(
+        "📡 <b>How to Connect:</b><br>"
+        "1. Ensure your telescope and device are on the same Wi-Fi network<br>"
+        "2. Click 'Start Discovery' to find telescopes<br>"
+        "3. Select a telescope from the list<br>"
+        "4. Click 'Connect' to establish connection<br>"
+        "<br>"
+        "<i>Once connected, switch to other tabs to view telescope data and control it.</i>"
+    );
+    helpLabel->setWordWrap(true);
+    helpLabel->setStyleSheet(
+        "padding: 15px; "
+        "background-color: #f9f9f9; "
+        "border: 1px solid #e0e0e0; "
+        "border-radius: 6px; "
+        "font-size: 13px; "
+        "color: #666;"
+    );
+    layout->addWidget(helpLabel);
+    
+    layout->addStretch();
+    
+    // ─────────────────────────────────────────────────────────────────
+    // CONNECT SIGNALS
+    // ─────────────────────────────────────────────────────────────────
+    connect(discoverButton, &QPushButton::clicked, this, &TelescopeGUI::startDiscovery);
+    connect(stopButton, &QPushButton::clicked, this, &TelescopeGUI::stopDiscovery);
+    connect(connectButton, &QPushButton::clicked, this, &TelescopeGUI::connectToSelectedTelescope);
+    
+    // Enable/disable connect button based on selection
+    connect(telescopeListWidget, &QListWidget::itemSelectionChanged, this, [this]() {
+        connectButton->setEnabled(telescopeListWidget->currentItem() != nullptr);
+    });
+    
+    // Update UI when connected
+    connect(this, &TelescopeGUI::telescopeConnected, this, [=]() {
+        connectButton->setEnabled(false);
+        disconnectButton->setEnabled(true);
+        infoGroup->setVisible(true);
+        connectedIpLabel->setText(connectedIpAddress);
+        telescopeModelLabel->setText("Celestron Origin");
+        connectionStatusLabel->setText("Connected ✓");
+        statusLabel->setText("Connected to " + connectedIpAddress);
+        statusLabel->setStyleSheet(
+            "font-size: 16px; "
+            "font-weight: bold; "
+            "padding: 12px; "
+            "background-color: #34C759; "
+            "color: white; "
+            "border-radius: 6px;"
+        );
+    });
+    
+    // Update UI when disconnected
+    connect(this, &TelescopeGUI::telescopeDisconnected, this, [=]() {
+        connectButton->setEnabled(telescopeListWidget->currentItem() != nullptr);
+        disconnectButton->setEnabled(false);
+        infoGroup->setVisible(false);
+        statusLabel->setText("Disconnected");
+        statusLabel->setStyleSheet(
+            "font-size: 16px; "
+            "font-weight: bold; "
+            "padding: 12px; "
+            "background-color: #f0f0f0; "
+            "border-radius: 6px;"
+        );
+    });
+    
+    connect(disconnectButton, &QPushButton::clicked, this, [this]() {
+        if (originBackend) {
+            originBackend->disconnect();
+            emit telescopeDisconnected();
+        }
+    });
+    
+    return tab;
 }
 
 QWidget* TelescopeGUI::createCommandTab() {
