@@ -18,6 +18,8 @@
 #include <QStringConverter>
 #include <QWebSocket>
 #include "TelescopeDataProcessor.hpp"
+#include "LocationManager.h"
+#include "LocationEntryDialog.h"
 
 /**
  * @brief Backend adapter to connect Alpaca server to Celestron Origin telescope
@@ -44,6 +46,12 @@ public:
         bool isAligned = false;
         QString currentOperation = "Idle";
         double temperature = 20.0;
+        
+        // GPS location data
+        double observerLatitude = 0.0;
+        double observerLongitude = 0.0;
+        double observerAltitude = 0.0;
+        bool hasObserverLocation = false;
     };
 
     explicit OriginBackend(QObject *parent = nullptr);
@@ -78,6 +86,7 @@ public:
     bool initializeTelescope();
     bool moveDirection(int direction, int speed);
     void speed(int altRate);
+    
     // Tracking
     bool setTracking(bool enabled);
     bool isTracking() const;
@@ -105,6 +114,7 @@ public:
     bool getCameraMode();
     bool getCaptureParameters();
     bool getCameraInfo();
+    
     // Camera mode control
     bool setCameraManualMode();
     bool setCameraAutoMode();
@@ -116,6 +126,17 @@ public:
     
     // Snapshot control
     bool takeSingleSnapshot();
+    
+    // Manual location entry
+    bool showManualLocationEntry();
+    
+    // GPS/Location management
+    void startLocationUpdates();
+    void stopLocationUpdates();
+    void updateObserverLocation();
+    bool isLocationAvailable() const;
+    void setManualLocation(double latitude, double longitude, double altitude = 0.0);
+    
     double radiansToHours(double radians);
     double radiansToDegrees(double radians);
 
@@ -124,6 +145,7 @@ signals:
     void disconnected();
     void statusUpdated();
     void imageReady();
+    
     // Camera-related signals
     void cameraModeChanged(bool isManual);
     void captureParametersChanged(double exposure, int iso, int binning);
@@ -133,12 +155,17 @@ signals:
                             double ra, double dec, double exposure);
     void liveImageDownloaded(const QByteArray& imageData, 
                             double ra, double dec, double exposure);
+    
     // Park/Unpark signals
     void parkStarted();
     void unparkStarted();
     void parkCompleted();
     void unparkCompleted();
     void trackingError(const QString& error);
+    
+    // Location signals
+    void observerLocationChanged();
+    void locationError(const QString& error);
 
 private slots:
     void onWebSocketConnected();
@@ -146,6 +173,7 @@ private slots:
     void onTextMessageReceived(const QString &message);
     void updateStatus();
     void monitorParkProgress();  // Monitor altitude during park/unpark
+    void onLocationUpdated();
 
 private:
     QWebSocket *m_webSocket;
@@ -154,6 +182,7 @@ private:
     QTimer *m_statusTimer;
     QTimer *m_pingTimer;
     QTimer *m_parkMonitorTimer;  // Timer for monitoring park/unpark progress
+    LocationManager *m_locationManager;  // GPS location manager
   
     // State variables
     QString m_connectedHost;
@@ -183,6 +212,7 @@ private:
     double hoursToRadians(double hours);
     double degreesToRadians(double degrees);
     void stopParkMotion();  // Stop altitude motion during park/unpark
+    void calculateAltAzFromRaDec(double ra, double dec, double& alt, double& az);
     
     // Camera state tracking
     bool m_cameraManualMode;
@@ -202,4 +232,7 @@ private:
     bool m_parkingInProgress;
     bool m_unparkingInProgress;
     double m_targetAltitude;  // Target altitude for park/unpark operations
+    
+    // Location dialog
+    LocationEntryDialog* m_locationDialog;
 };

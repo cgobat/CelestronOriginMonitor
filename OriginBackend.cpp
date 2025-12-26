@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QStandardPaths>
+#include "LocationEntryDialog.h"
 
 OriginBackend::OriginBackend(QObject *parent)
     : QObject(parent)
@@ -34,6 +35,7 @@ OriginBackend::OriginBackend(QObject *parent)
     , m_unparkingInProgress(false)
     , m_targetAltitude(0.0)
     , m_parkMonitorTimer(nullptr)
+    , m_locationManager(nullptr)
 {
     m_webSocket = new QWebSocket("", QWebSocketProtocol::VersionLatest, this);
     m_dataProcessor = new TelescopeDataProcessor(this);
@@ -41,6 +43,13 @@ OriginBackend::OriginBackend(QObject *parent)
     m_statusTimer = new QTimer(this);
     m_pingTimer = new QTimer(this);
     m_parkMonitorTimer = new QTimer(this);
+    
+    // Initialize GPS location manager
+    m_locationManager = new LocationManager(this);
+    connect(m_locationManager, &LocationManager::locationUpdated, 
+            this, &OriginBackend::onLocationUpdated);
+    connect(m_locationManager, &LocationManager::errorOccurred,
+            this, &OriginBackend::locationError);
 
     // Initialize logging
     initializeLogging();
@@ -520,8 +529,22 @@ bool OriginBackend::initializeTelescope()
     params["Date"] = now.toString("dd MM yyyy");
     params["Time"] = now.toString("HH:mm:ss");
     params["TimeZone"] = "UTC"; // Or get system timezone
-    params["Latitude"] = degreesToRadians(52.2); // Default latitude
-    params["Longitude"] = degreesToRadians(0.0); // Default longitude
+    
+    // Use GPS coordinates if available, otherwise use defaults
+    if (m_status.hasObserverLocation) {
+        params["Latitude"] = degreesToRadians(m_status.observerLatitude);
+        params["Longitude"] = degreesToRadians(m_status.observerLongitude);
+        qDebug() << "Initializing telescope with GPS location:"
+                 << "Lat:" << m_status.observerLatitude
+                 << "Lon:" << m_status.observerLongitude;
+    } else {
+        // Fallback to default coordinates (Cambridge, UK area)
+        params["Latitude"] = degreesToRadians(52.2);
+        params["Longitude"] = degreesToRadians(0.0);
+        qWarning() << "GPS location not available! Using default coordinates (52.2°N, 0.0°E)";
+        qWarning() << "Please enable GPS for accurate telescope positioning";
+    }
+    
     params["FakeInitialize"] = false;
 
     sendCommand("RunInitialize", "TaskController", params);
@@ -937,10 +960,15 @@ void OriginBackend::updateStatusFromProcessor()
     m_status.raPosition = radiansToHours(data.mount.enc0); // Assuming enc0 is RA
     m_status.decPosition = radiansToDegrees(data.mount.enc1); // Assuming enc1 is Dec
     
-    // Calculate Alt/Az from current mount data if available
-    // This would require proper coordinate conversion
-    m_status.altPosition = 45.0; // Placeholder
-    m_status.azPosition = 180.0; // Placeholder
+    // Calculate Alt/Az from RA/Dec using observer location
+    if (m_status.hasObserverLocation) {
+        calculateAltAzFromRaDec(m_status.raPosition, m_status.decPosition, 
+                                m_status.altPosition, m_status.azPosition);
+    } else {
+        // No GPS location available yet
+        m_status.altPosition = 0.0;
+        m_status.azPosition = 0.0;
+    }
     
     // Update temperature from environment data
     m_status.temperature = data.environment.ambientTemperature;
@@ -1118,3 +1146,173 @@ void OriginBackend::setCameraConnected(bool connected)
     m_status.isCameraLogicallyConnected = connected;
     qDebug() << "  Camera logical after:" << m_status.isCameraLogicallyConnected;
 }
+
+// GPS/Location Methods Implementation
+
+void OriginBackend::startLocationUpdates()
+{
+    if (m_locationManager) {
+        qDebug() << "Starting GPS location updates";
+        m_locationManager->startUpdates();
+    }
+}
+
+void OriginBackend::stopLocationUpdates()
+{
+    if (m_locationManager) {
+        qDebug() << "Stopping GPS location updates";
+        m_locationManager->stopUpdates();
+    }
+}
+
+void OriginBackend::updateObserverLocation()
+{
+    if (m_locationManager) {
+        qDebug() << "Requesting current GPS location";
+        m_locationManager->requestCurrentLocation();
+    }
+}
+
+bool OriginBackend::isLocationAvailable() const
+{
+    return m_locationManager ? m_locationManager->isLocationAvailable() : false;
+}
+
+void OriginBackend::onLocationUpdated()
+{
+    if (!m_locationManager) return;
+    
+    m_status.observerLatitude = m_locationManager->latitude();
+    m_status.observerLongitude = m_locationManager->longitude();
+    m_status.observerAltitude = m_locationManager->altitude();
+    m_status.hasObserverLocation = m_locationManager->hasLocation();
+    
+    qDebug() << "Observer location updated:"
+             << "Lat:" << m_status.observerLatitude
+             << "Lon:" << m_status.observerLongitude
+             << "Alt:" << m_status.observerAltitude << "m";
+    
+    emit observerLocationChanged();
+    
+    // Recalculate Alt/Az with new location
+    if (m_status.hasObserverLocation) {
+        updateStatusFromProcessor();
+    }
+}
+
+void OriginBackend::calculateAltAzFromRaDec(double ra, double dec, double& alt, double& az)
+{
+    // Convert RA/Dec to Alt/Az using observer location
+    // This requires the Local Sidereal Time (LST)
+    
+    if (!m_status.hasObserverLocation) {
+        alt = 0.0;
+        az = 0.0;
+        return;
+    }
+    
+    // Get current time for LST calculation
+    QDateTime now = QDateTime::currentDateTimeUtc();
+    double jd = 2440587.5 + (now.toMSecsSinceEpoch() / 86400000.0);
+    
+    // Calculate Greenwich Mean Sidereal Time (GMST)
+    double T = (jd - 2451545.0) / 36525.0;
+    double gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + 
+                  0.000387933 * T * T - T * T * T / 38710000.0;
+    
+    // Normalize to 0-360
+    while (gmst < 0) gmst += 360.0;
+    while (gmst >= 360.0) gmst -= 360.0;
+    
+    // Calculate Local Sidereal Time
+    double lst = gmst + m_status.observerLongitude;
+    while (lst < 0) lst += 360.0;
+    while (lst >= 360.0) lst -= 360.0;
+    
+    // Convert RA from hours to degrees
+    double raDeg = ra * 15.0;
+    
+    // Calculate Hour Angle
+    double ha = lst - raDeg;
+    
+    // Convert to radians for trig functions
+    double haRad = degreesToRadians(ha);
+    double decRad = degreesToRadians(dec);
+    double latRad = degreesToRadians(m_status.observerLatitude);
+    
+    // Calculate altitude
+    double sinAlt = sin(decRad) * sin(latRad) + 
+                    cos(decRad) * cos(latRad) * cos(haRad);
+    alt = radiansToDegrees(asin(sinAlt));
+    
+    // Calculate azimuth
+    double cosAz = (sin(decRad) - sin(latRad) * sin(asin(sinAlt))) / 
+                   (cos(latRad) * cos(asin(sinAlt)));
+    
+    // Clamp to [-1, 1] to avoid acos domain errors
+    if (cosAz > 1.0) cosAz = 1.0;
+    if (cosAz < -1.0) cosAz = -1.0;
+    
+    az = radiansToDegrees(acos(cosAz));
+    
+    // Adjust azimuth based on hour angle
+    if (sin(haRad) > 0) {
+        az = 360.0 - az;
+    }
+    
+    qDebug() << "Calculated Alt/Az: Alt =" << alt << "Az =" << az
+             << "from RA/Dec:" << ra << "/" << dec;
+}
+
+void OriginBackend::setManualLocation(double latitude, double longitude, double altitude)
+{
+    // Validate coordinates
+    if (latitude < -90.0 || latitude > 90.0) {
+        qWarning() << "Invalid latitude:" << latitude << "(must be between -90 and 90)";
+        emit locationError("Invalid latitude: must be between -90° and 90°");
+        return;
+    }
+    
+    if (longitude < -180.0 || longitude > 180.0) {
+        qWarning() << "Invalid longitude:" << longitude << "(must be between -180 and 180)";
+        emit locationError("Invalid longitude: must be between -180° and 180°");
+        return;
+    }
+    
+    // Set the manual coordinates
+    m_status.observerLatitude = latitude;
+    m_status.observerLongitude = longitude;
+    m_status.observerAltitude = altitude;
+    m_status.hasObserverLocation = true;
+    
+    qDebug() << "Manual location set:"
+             << "Lat:" << m_status.observerLatitude
+             << "Lon:" << m_status.observerLongitude
+             << "Alt:" << m_status.observerAltitude << "m";
+    
+    emit observerLocationChanged();
+    
+    // Recalculate Alt/Az with new location
+    updateStatusFromProcessor();
+}
+
+bool OriginBackend::showManualLocationEntry()
+{
+    LocationEntryDialog dialog;
+    
+    // Pre-fill with current values if available
+    if (m_status.hasObserverLocation) {
+        dialog.setLatitude(m_status.observerLatitude);
+        dialog.setLongitude(m_status.observerLongitude);
+        dialog.setAltitude(m_status.observerAltitude);
+    }
+    
+    if (dialog.exec() == QDialog::Accepted) {
+        setManualLocation(dialog.latitude(), dialog.longitude(), dialog.altitude());
+        return true;
+    }
+    
+    return false;
+}
+
+

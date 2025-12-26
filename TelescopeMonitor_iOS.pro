@@ -1,13 +1,13 @@
 # TelescopeMonitor_iOS.pro - With App Icons Support
 
-QT += core gui widgets network websockets
+QT += core gui widgets network websockets positioning
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = TelescopeMonitor
 TEMPLATE = app
 
-CONFIG += c++17
+CONFIG += c++17 sdk_no_version_check
 
 # iOS specific configuration
 ios {
@@ -94,15 +94,19 @@ SOURCES += \
     TelescopeGUI.cpp \
     OriginBackend.cpp \
     TelescopeDataProcessor.cpp \
-    CommandInterface.cpp
-
+    CommandInterface.cpp \
+    LocationEntryDialog.cpp \
+    LocationManager.cpp \
+    
 HEADERS += \
     TelescopeGUI.hpp \
     OriginBackend.hpp \
     TelescopeData.hpp \
     TelescopeDataProcessor.hpp \
-    CommandInterface.hpp
-
+    CommandInterface.hpp \
+    LocationEntryDialog.h \
+    LocationManager.h \
+    
 # Optional files
 exists($$PWD/LogReplayDialog.cpp) {
     SOURCES += LogReplayDialog.cpp
