@@ -47,7 +47,7 @@ public:
         QString currentOperation = "Idle";
         double temperature = 20.0;
         
-        // GPS location data
+        // Observatory location data (must be set before initialization)
         double observerLatitude = 0.0;
         double observerLongitude = 0.0;
         double observerAltitude = 0.0;
@@ -83,7 +83,7 @@ public:
     bool abortMotion();
     bool parkMount();           // Park using MoveAxis and altitude monitoring
     bool unparkMount();         // Unpark using MoveAxis and altitude monitoring
-    bool initializeTelescope();
+    bool initializeTelescope();  // Requires location to be set first!
     bool moveDirection(int direction, int speed);
     void speed(int altRate);
     
@@ -126,7 +126,6 @@ public:
     
     // Snapshot control
     bool takeSingleSnapshot();
-    
     // Manual location entry
     bool showManualLocationEntry();
     
@@ -136,6 +135,15 @@ public:
     void updateObserverLocation();
     bool isLocationAvailable() const;
     void setManualLocation(double latitude, double longitude, double altitude = 0.0);
+    
+    // Location management - SIMPLIFIED
+    // Location MUST be set via dialog before initialization
+    bool showLocationDialog();  // Shows dialog, sets location if accepted, returns true if location was set
+    void setObserverLocation(double latitude, double longitude, double altitude = 0.0);
+    bool hasObserverLocation() const { return m_status.hasObserverLocation; }
+    double observerLatitude() const { return m_status.observerLatitude; }
+    double observerLongitude() const { return m_status.observerLongitude; }
+    double observerAltitude() const { return m_status.observerAltitude; }
     
     double radiansToHours(double radians);
     double radiansToDegrees(double radians);
@@ -232,7 +240,4 @@ private:
     bool m_parkingInProgress;
     bool m_unparkingInProgress;
     double m_targetAltitude;  // Target altitude for park/unpark operations
-    
-    // Location dialog
-    LocationEntryDialog* m_locationDialog;
 };

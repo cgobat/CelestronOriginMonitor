@@ -38,6 +38,7 @@ class OriginBackend;
 #include "TelescopeDataProcessor.hpp"
 #include "CommandInterface.hpp"
 #include "LogReplayDialog.hpp"
+#include "LocationManager.h"
 
 /**
  * @brief Main application window for the telescope monitor
@@ -154,6 +155,12 @@ private slots:
     void onSnapshotReady(const QString& fileLocation, double ra, double dec);
     void onSnapshotDownloaded(const QString& localPath);
     void onSnapshotDownloadProgress(qint64 bytesReceived, qint64 bytesTotal);
+    // Location handling
+    void onLocationChanged();
+    void onUseGPSClicked();
+    void onGPSLocationReceived();
+    void onGPSError(const QString& error);
+    void onQuickLocationClicked();
 
 signals:
     void telescopeConnected();
@@ -353,5 +360,13 @@ private:
     bool debug = false;
     LogReplayDialog* m_logReplayDialog;
 
+    // Location widgets
+    QDoubleSpinBox* locationLatitudeSpinBox;
+    QDoubleSpinBox* locationLongitudeSpinBox;
+    QDoubleSpinBox* locationAltitudeSpinBox;
+    QPushButton* useGPSButton;
+    QLabel* locationStatusLabel;
+    LocationManager* m_locationManager;  // For GPS functionality
+  
   
 };

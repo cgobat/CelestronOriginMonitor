@@ -6,6 +6,7 @@
 
 TelescopeGUI::TelescopeGUI(QWidget *parent)
     : QMainWindow(parent)
+    , m_locationManager(nullptr)  // Initialize GPS manager to null
 {
     setWindowTitle("Celestron Origin Monitor");
     resize(900, 700);
@@ -877,16 +878,140 @@ QWidget* TelescopeGUI::createSystemTab() {
     
     return tab;
 }
-
 // ============================================================================
-// Add to TelescopeGUI.cpp - Create the tab
+// IMPROVED TASK CONTROLLER TAB - TelescopeGUI.cpp
 // ============================================================================
+// Replace the createTaskControllerTab() method with this version:
 
 QWidget* TelescopeGUI::createTaskControllerTab() {
     QWidget *tab = new QWidget();
     QVBoxLayout *mainLayout = new QVBoxLayout(tab);
     
-    // Initialize section
+    // ========================================================================
+    // OBSERVATORY LOCATION SECTION (NEW - AT TOP)
+    // ========================================================================
+    QGroupBox *locationGroup = new QGroupBox("Observatory Location", tab);
+    locationGroup->setStyleSheet(
+        "QGroupBox { "
+        "    font-weight: bold; "
+        "    border: 2px solid #007AFF; "
+        "    border-radius: 5px; "
+        "    margin-top: 10px; "
+        "    padding-top: 10px; "
+        "}"
+    );
+    QVBoxLayout *locationVBox = new QVBoxLayout(locationGroup);
+    
+    // Info label
+    QLabel *locationInfoLabel = new QLabel(
+        "⚠️ Location must be set before initializing the telescope"
+    );
+    locationInfoLabel->setWordWrap(true);
+    locationInfoLabel->setStyleSheet("QLabel { color: #FF9500; font-weight: bold; }");
+    locationVBox->addWidget(locationInfoLabel);
+    
+    // Location input fields
+    QFormLayout *locationForm = new QFormLayout();
+    locationForm->setSpacing(8);
+    
+    // Latitude
+    locationLatitudeSpinBox = new QDoubleSpinBox();
+    locationLatitudeSpinBox->setRange(-90.0, 90.0);
+    locationLatitudeSpinBox->setDecimals(6);
+    locationLatitudeSpinBox->setSuffix("°");
+    locationLatitudeSpinBox->setValue(0.0);
+    locationLatitudeSpinBox->setMinimumWidth(150);
+    connect(locationLatitudeSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &TelescopeGUI::onLocationChanged);
+    locationForm->addRow("Latitude:", locationLatitudeSpinBox);
+    
+    // Longitude
+    locationLongitudeSpinBox = new QDoubleSpinBox();
+    locationLongitudeSpinBox->setRange(-180.0, 180.0);
+    locationLongitudeSpinBox->setDecimals(6);
+    locationLongitudeSpinBox->setSuffix("°");
+    locationLongitudeSpinBox->setValue(0.0);
+    locationLongitudeSpinBox->setMinimumWidth(150);
+    connect(locationLongitudeSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &TelescopeGUI::onLocationChanged);
+    locationForm->addRow("Longitude:", locationLongitudeSpinBox);
+    
+    // Altitude (optional)
+    locationAltitudeSpinBox = new QDoubleSpinBox();
+    locationAltitudeSpinBox->setRange(-500.0, 9000.0);
+    locationAltitudeSpinBox->setDecimals(1);
+    locationAltitudeSpinBox->setSuffix(" m");
+    locationAltitudeSpinBox->setValue(0.0);
+    locationAltitudeSpinBox->setMinimumWidth(150);
+    connect(locationAltitudeSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &TelescopeGUI::onLocationChanged);
+    locationForm->addRow("Altitude:", locationAltitudeSpinBox);
+    
+    locationVBox->addLayout(locationForm);
+    
+    // Buttons row
+    QHBoxLayout *locationButtonsLayout = new QHBoxLayout();
+    
+    // Use GPS button
+    useGPSButton = new QPushButton("📍 Use GPS");
+    useGPSButton->setToolTip("Auto-fill coordinates using GPS");
+    useGPSButton->setStyleSheet(
+        "QPushButton { "
+        "    padding: 8px 16px; "
+        "    background-color: #007AFF; "
+        "    color: white; "
+        "    font-weight: bold; "
+        "    border-radius: 5px; "
+        "} "
+        "QPushButton:hover { background-color: #0051D5; } "
+        "QPushButton:disabled { background-color: #cccccc; }"
+    );
+    connect(useGPSButton, &QPushButton::clicked, this, &TelescopeGUI::onUseGPSClicked);
+    locationButtonsLayout->addWidget(useGPSButton);
+    
+    // Quick location buttons
+    QPushButton *londonBtn = new QPushButton("London");
+    londonBtn->setProperty("lat", 51.5074);
+    londonBtn->setProperty("lon", -0.1278);
+    londonBtn->setToolTip("51.5074°N, 0.1278°W");
+    connect(londonBtn, &QPushButton::clicked, this, &TelescopeGUI::onQuickLocationClicked);
+    locationButtonsLayout->addWidget(londonBtn);
+    
+    QPushButton *nyBtn = new QPushButton("New York");
+    nyBtn->setProperty("lat", 40.7128);
+    nyBtn->setProperty("lon", -74.0060);
+    nyBtn->setToolTip("40.7128°N, 74.0060°W");
+    connect(nyBtn, &QPushButton::clicked, this, &TelescopeGUI::onQuickLocationClicked);
+    locationButtonsLayout->addWidget(nyBtn);
+    
+    QPushButton *tokyoBtn = new QPushButton("Tokyo");
+    tokyoBtn->setProperty("lat", 35.6762);
+    tokyoBtn->setProperty("lon", 139.6503);
+    tokyoBtn->setToolTip("35.6762°N, 139.6503°E");
+    connect(tokyoBtn, &QPushButton::clicked, this, &TelescopeGUI::onQuickLocationClicked);
+    locationButtonsLayout->addWidget(tokyoBtn);
+    
+    locationButtonsLayout->addStretch();
+    locationVBox->addLayout(locationButtonsLayout);
+    
+    // Location status label
+    locationStatusLabel = new QLabel("⚠️ Location not set");
+    locationStatusLabel->setWordWrap(true);
+    locationStatusLabel->setStyleSheet(
+        "QLabel { "
+        "    padding: 8px; "
+        "    background-color: #FFF3CD; "
+        "    border-radius: 5px; "
+        "    color: #856404; "
+        "}"
+    );
+    locationVBox->addWidget(locationStatusLabel);
+    
+    mainLayout->addWidget(locationGroup);
+    
+    // ========================================================================
+    // TELESCOPE INITIALIZATION SECTION
+    // ========================================================================
     QGroupBox *initstatusGroup = new QGroupBox("Telescope Initialization", tab);
     QVBoxLayout *initvboxLayout = new QVBoxLayout(initstatusGroup);
     
@@ -905,11 +1030,30 @@ QWidget* TelescopeGUI::createTaskControllerTab() {
     // Initialization button
     QHBoxLayout *initButtonLayout = new QHBoxLayout();
     initializeButton = new QPushButton("Initialize Telescope", initstatusGroup);
+    initializeButton->setEnabled(false);  // Disabled until location is set
+    initializeButton->setStyleSheet(
+        "QPushButton { "
+        "    padding: 10px 20px; "
+        "    font-weight: bold; "
+        "    font-size: 14px; "
+        "} "
+        "QPushButton:enabled { "
+        "    background-color: #34C759; "
+        "    color: white; "
+        "} "
+        "QPushButton:disabled { "
+        "    background-color: #cccccc; "
+        "}"
+    );
     connect(initializeButton, &QPushButton::clicked, this, &TelescopeGUI::initializeTelescope);
     initButtonLayout->addWidget(initializeButton);
     initvboxLayout->addLayout(initButtonLayout);
     
     mainLayout->addWidget(initstatusGroup);
+    
+    // ========================================================================
+    // REST OF THE EXISTING TAB (unchanged)
+    // ========================================================================
     
     // Overall Status Group
     QGroupBox *statusGroup = new QGroupBox("Overall Status", tab);
@@ -2143,33 +2287,6 @@ void TelescopeGUI::cancelSlewAndImage() {
     slewProgressBar->setValue(0);
 }
 
-void TelescopeGUI::initializeTelescope() {
-  if (!originBackend->isConnected()) {
-        QMessageBox::warning(this, "Not Connected", "Please connect to a telescope first");
-        return;
-    }
-    
-    // Use the exact initialization command from init.txt
-    QJsonObject runInitCommand;
-    // Get current date and time - you can also use fixed values from init.txt
-    QDateTime now = QDateTime::currentDateTime();
-    QString dateStr = now.toString("dd MM yyyy");
-    QString timeStr = now.toString("HH:mm:ss");
-    
-    // Use location values from init.txt - Cambridge, UK coordinates
-    runInitCommand["Date"] = dateStr; // Or use dateStr for current date
-    runInitCommand["FakeInitialize"] = false;
-    runInitCommand["Latitude"] = 0.9118493267600084;  // In radians (Cambridge, UK)
-    runInitCommand["Longitude"] = 0.0013880067713051129;  // In radians
-    runInitCommand["Time"] = timeStr; // Or use timeStr for current time
-    runInitCommand["TimeZone"] = "Europe/London";
-    
-    originBackend->sendCommand("RunInitialize", "TaskController", runInitCommand);
-    
-    slewStatusLabel->setText("Initializing telescope...");
-    initializeButton->setEnabled(false);
-}
-
 void TelescopeGUI::startTelescopeAlignment() {
   if (!originBackend->isConnected()) {
         QMessageBox::warning(this, "Not Connected", "Please connect to a telescope first");
@@ -2302,4 +2419,209 @@ void TelescopeGUI::showLogReplay()
     m_logReplayDialog->show();
     m_logReplayDialog->raise();
     m_logReplayDialog->activateWindow();
+}
+
+
+// ============================================================================
+// NEW SLOT HANDLERS - Add to TelescopeGUI.cpp
+// ============================================================================
+
+void TelescopeGUI::onLocationChanged()
+{
+    double lat = locationLatitudeSpinBox->value();
+    double lon = locationLongitudeSpinBox->value();
+    double alt = locationAltitudeSpinBox->value();
+    
+    // Check if coordinates are valid and not default (0,0)
+    bool isValid = (lat != 0.0 || lon != 0.0) && 
+                   (lat >= -90.0 && lat <= 90.0) && 
+                   (lon >= -180.0 && lon <= 180.0);
+    
+    if (isValid) {
+        // Set location in backend
+        originBackend->setObserverLocation(lat, lon, alt);
+        
+        // Update status label
+        locationStatusLabel->setText(QString(
+            "✅ Location set: %1°, %2°, %3m"
+        ).arg(lat, 0, 'f', 6).arg(lon, 0, 'f', 6).arg(alt, 0, 'f', 1));
+        locationStatusLabel->setStyleSheet(
+            "QLabel { "
+            "    padding: 8px; "
+            "    background-color: #D4EDDA; "
+            "    border-radius: 5px; "
+            "    color: #155724; "
+            "    font-weight: bold; "
+            "}"
+        );
+        
+        // Enable initialize button
+        initializeButton->setEnabled(true);
+    } else {
+        locationStatusLabel->setText("⚠️ Location not set (enter valid coordinates)");
+        locationStatusLabel->setStyleSheet(
+            "QLabel { "
+            "    padding: 8px; "
+            "    background-color: #FFF3CD; "
+            "    border-radius: 5px; "
+            "    color: #856404; "
+            "}"
+        );
+        
+        // Disable initialize button
+        initializeButton->setEnabled(false);
+    }
+}
+
+void TelescopeGUI::onUseGPSClicked()
+{
+    if (!m_locationManager) {
+        m_locationManager = new LocationManager(this);
+        connect(m_locationManager, &LocationManager::locationUpdated,
+                this, &TelescopeGUI::onGPSLocationReceived);
+        connect(m_locationManager, &LocationManager::errorOccurred,
+                this, &TelescopeGUI::onGPSError);
+    }
+    
+    if (!m_locationManager->isLocationAvailable()) {
+        QMessageBox::warning(this, "GPS Not Available",
+            "GPS location services are not available on this device.\n\n"
+            "Please enter your coordinates manually or use a quick location button.");
+        return;
+    }
+    
+    // Disable UI while getting GPS
+    useGPSButton->setEnabled(false);
+    useGPSButton->setText("🛰️ Getting GPS...");
+    locationStatusLabel->setText("🛰️ Requesting GPS location... Please wait.");
+    locationStatusLabel->setStyleSheet(
+        "QLabel { "
+        "    padding: 8px; "
+        "    background-color: #CCE5FF; "
+        "    border-radius: 5px; "
+        "    color: #004085; "
+        "}"
+    );
+    
+    // Request location
+    m_locationManager->requestCurrentLocation();
+    
+    // Timeout after 30 seconds
+    QTimer::singleShot(30000, this, [this]() {
+        if (useGPSButton->text().contains("Getting")) {
+            onGPSError("GPS request timed out after 30 seconds");
+        }
+    });
+}
+
+void TelescopeGUI::onGPSLocationReceived()
+{
+    if (!m_locationManager) return;
+    
+    double lat = m_locationManager->latitude();
+    double lon = m_locationManager->longitude();
+    double alt = m_locationManager->altitude();
+    
+    // Auto-fill the spin boxes
+    locationLatitudeSpinBox->setValue(lat);
+    locationLongitudeSpinBox->setValue(lon);
+    if (alt > -500.0 && alt < 9000.0) {
+        locationAltitudeSpinBox->setValue(alt);
+    }
+    
+    // Update UI
+    useGPSButton->setEnabled(true);
+    useGPSButton->setText("✅ GPS Used");
+    
+    // The onLocationChanged() slot will be triggered automatically
+    // by the spin box value changes
+    
+    m_locationManager->stopUpdates();
+}
+
+void TelescopeGUI::onGPSError(const QString& error)
+{
+    useGPSButton->setEnabled(true);
+    useGPSButton->setText("📍 Use GPS");
+    
+    locationStatusLabel->setText(QString(
+        "⚠️ GPS Error: %1\nPlease enter coordinates manually."
+    ).arg(error));
+    locationStatusLabel->setStyleSheet(
+        "QLabel { "
+        "    padding: 8px; "
+        "    background-color: #F8D7DA; "
+        "    border-radius: 5px; "
+        "    color: #721C24; "
+        "}"
+    );
+    
+    if (m_locationManager) {
+        m_locationManager->stopUpdates();
+    }
+}
+
+void TelescopeGUI::onQuickLocationClicked()
+{
+    QPushButton* btn = qobject_cast<QPushButton*>(sender());
+    if (btn) {
+        double lat = btn->property("lat").toDouble();
+        double lon = btn->property("lon").toDouble();
+        locationLatitudeSpinBox->setValue(lat);
+        locationLongitudeSpinBox->setValue(lon);
+    }
+}
+
+
+// ============================================================================
+// UPDATED INITIALIZE METHOD - Add to TelescopeGUI.cpp
+// ============================================================================
+
+void TelescopeGUI::initializeTelescope() {
+    if (!originBackend->isConnected()) {
+        QMessageBox::warning(this, "Not Connected", 
+            "Please connect to a telescope first.");
+        return;
+    }
+    
+    // Double-check location is set (button should be disabled if not)
+    if (!originBackend->hasObserverLocation()) {
+        QMessageBox::warning(this, "Location Required",
+            "Please set your observatory location before initializing.\n\n"
+            "Enter coordinates manually, use GPS, or click a quick location button.");
+        return;
+    }
+    
+    // Confirm initialization
+    QString confirmMsg = QString(
+        "Initialize telescope with location:\n\n"
+        "Latitude:  %1°\n"
+        "Longitude: %2°\n"
+        "Altitude:  %3 m\n\n"
+        "Continue?"
+    ).arg(originBackend->observerLatitude(), 0, 'f', 6)
+     .arg(originBackend->observerLongitude(), 0, 'f', 6)
+     .arg(originBackend->observerAltitude(), 0, 'f', 1);
+    
+    QMessageBox::StandardButton reply = QMessageBox::question(this, 
+        "Confirm Initialization", confirmMsg,
+        QMessageBox::Yes | QMessageBox::No);
+    
+    if (reply != QMessageBox::Yes) {
+        return;
+    }
+    
+    // Initialize telescope
+    if (originBackend->initializeTelescope()) {
+        slewStatusLabel->setText("Initializing telescope...");
+        initializeButton->setEnabled(false);
+        
+        // Re-enable after a delay
+        QTimer::singleShot(5000, this, [this]() {
+            initializeButton->setEnabled(originBackend->hasObserverLocation());
+        });
+    } else {
+        QMessageBox::warning(this, "Initialization Failed",
+            "Failed to start telescope initialization.");
+    }
 }

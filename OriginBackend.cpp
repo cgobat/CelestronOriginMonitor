@@ -43,14 +43,14 @@ OriginBackend::OriginBackend(QObject *parent)
     m_statusTimer = new QTimer(this);
     m_pingTimer = new QTimer(this);
     m_parkMonitorTimer = new QTimer(this);
-    
+/*
     // Initialize GPS location manager
     m_locationManager = new LocationManager(this);
     connect(m_locationManager, &LocationManager::locationUpdated, 
             this, &OriginBackend::onLocationUpdated);
     connect(m_locationManager, &LocationManager::errorOccurred,
             this, &OriginBackend::locationError);
-
+*/
     // Initialize logging
     initializeLogging();
 
@@ -518,7 +518,7 @@ bool OriginBackend::unparkMount()
 
 bool OriginBackend::initializeTelescope()
 {
-    if (!isConnected()) {
+    if (!isConnected() || !m_status.hasObserverLocation) {
         return false;
     }
 
@@ -530,21 +530,11 @@ bool OriginBackend::initializeTelescope()
     params["Time"] = now.toString("HH:mm:ss");
     params["TimeZone"] = "UTC"; // Or get system timezone
     
-    // Use GPS coordinates if available, otherwise use defaults
-    if (m_status.hasObserverLocation) {
-        params["Latitude"] = degreesToRadians(m_status.observerLatitude);
-        params["Longitude"] = degreesToRadians(m_status.observerLongitude);
-        qDebug() << "Initializing telescope with GPS location:"
+    params["Latitude"] = degreesToRadians(m_status.observerLatitude);
+    params["Longitude"] = degreesToRadians(m_status.observerLongitude);
+    qDebug() << "Initializing telescope with GPS location:"
                  << "Lat:" << m_status.observerLatitude
-                 << "Lon:" << m_status.observerLongitude;
-    } else {
-        // Fallback to default coordinates (Cambridge, UK area)
-        params["Latitude"] = degreesToRadians(52.2);
-        params["Longitude"] = degreesToRadians(0.0);
-        qWarning() << "GPS location not available! Using default coordinates (52.2°N, 0.0°E)";
-        qWarning() << "Please enable GPS for accurate telescope positioning";
-    }
-    
+                 << "Lon:" << m_status.observerLongitude;    
     params["FakeInitialize"] = false;
 
     sendCommand("RunInitialize", "TaskController", params);
@@ -1315,4 +1305,34 @@ bool OriginBackend::showManualLocationEntry()
     return false;
 }
 
-
+void OriginBackend::setObserverLocation(double latitude, double longitude, double altitude)
+{
+    // Validate coordinates
+    if (latitude < -90.0 || latitude > 90.0) {
+        qWarning() << "Invalid latitude:" << latitude << "(must be between -90 and 90)";
+        return;
+    }
+    
+    if (longitude < -180.0 || longitude > 180.0) {
+        qWarning() << "Invalid longitude:" << longitude << "(must be between -180 and 180)";
+        return;
+    }
+    
+    // Set the coordinates
+    m_status.observerLatitude = latitude;
+    m_status.observerLongitude = longitude;
+    m_status.observerAltitude = altitude;
+    m_status.hasObserverLocation = true;
+    
+    qDebug() << "Observer location set:"
+             << "Lat:" << m_status.observerLatitude
+             << "Lon:" << m_status.observerLongitude
+             << "Alt:" << m_status.observerAltitude << "m";
+    
+    emit observerLocationChanged();
+    
+    // Recalculate Alt/Az with new location if we have telescope coordinates
+    if (m_status.hasObserverLocation) {
+        updateStatusFromProcessor();
+    }
+}
