@@ -285,7 +285,7 @@ void TelescopeGUI::connectToSelectedTelescope() {
     QString text;
     if (!selectedItem) {
         statusLabel->setText("Selected default telescope");
-        text = "192.168.50.23";
+        text = "192.168.1.195";
     }
     else
           text = selectedItem->text();

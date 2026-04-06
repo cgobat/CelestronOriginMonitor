@@ -462,8 +462,7 @@ bool OriginBackend::unparkMount()
     }
 
     if (!m_status.isParked) {
-        qDebug() << "Mount not parked, skipping unpark";
-        return true;
+        qDebug() << "Mount not parked, unparking anyway";
     }
 
     const TelescopeData& data = m_dataProcessor->getData();
