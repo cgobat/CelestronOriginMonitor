@@ -1057,7 +1057,7 @@ void OriginBackend::initializeLogging() {
     m_logFile = new QFile(logFileName, this);
     if (m_logFile->open(QIODevice::WriteOnly | QIODevice::Append)) {
         m_logStream = new QTextStream(m_logFile);
-        m_logStream->setEncoding(QStringConverter::Utf8);
+        m_logStream->setCodec("UTF-8");
         
         qDebug() << "WebSocket logging initialized:" << logFileName;
         logWebSocketMessage("SYSTEM", "=== WebSocket Logging Started ===");
