@@ -58,7 +58,7 @@ OriginBackend::OriginBackend(QObject *parent)
         logWebSocketMessage("PONG", QString("RTT: %1ms").arg(elapsedTime));
     });
     
-    connect(m_webSocket, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error),
+    connect(m_webSocket, &QWebSocket::errorOccurred,
             this, [this](QAbstractSocket::SocketError error) {
         qWarning() << "WebSocket error:" << error << m_webSocket->errorString();
         logWebSocketMessage("ERROR", QString("Code: %1, Message: %2")
@@ -1131,7 +1131,7 @@ void OriginBackend::initializeLogging() {
     m_logFile = new QFile(logFileName, this);
     if (m_logFile->open(QIODevice::WriteOnly | QIODevice::Append)) {
         m_logStream = new QTextStream(m_logFile);
-        m_logStream->setCodec("UTF-8");
+        // Qt6: QTextStream uses UTF-8 by default; setCodec() was removed
         
         qDebug() << "WebSocket logging initialized:" << logFileName;
         logWebSocketMessage("SYSTEM", "=== WebSocket Logging Started ===");

@@ -52,7 +52,13 @@ void JsonMonitorTab::setupUI()
     // Left: JSON message log
     m_logView = new QTextEdit();
     m_logView->setReadOnly(true);
+#ifdef Q_OS_WIN
+    m_logView->setFont(QFont("Consolas", 10));
+#elif defined(Q_OS_MACOS)
     m_logView->setFont(QFont("Menlo", 11));
+#else
+    m_logView->setFont(QFont("Monospace", 10));
+#endif
     m_logView->setLineWrapMode(QTextEdit::NoWrap);
     splitter->addWidget(m_logView);
 

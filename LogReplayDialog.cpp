@@ -172,7 +172,7 @@ bool LogReplayDialog::loadLogFile(const QString& filename)
     m_currentIndex = -1;
     
     QTextStream in(&file);
-    in.setCodec("UTF-8");
+    // Qt6: QTextStream uses UTF-8 by default; setCodec() was removed
     
     // Parse log file
     // Format: [YYYY-MM-DD HH:MM:SS.zzz] DIRECTION: JSON

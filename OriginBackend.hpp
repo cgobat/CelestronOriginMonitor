@@ -15,7 +15,6 @@
 #include <QTextStream>
 #include <QStandardPaths>
 #include <QDir>
-#include <QTextCodec>
 #include <QEventLoop>
 #include <QWebSocket>
 #include "TelescopeDataProcessor.hpp"

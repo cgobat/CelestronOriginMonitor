@@ -1,14 +1,26 @@
 #include "PlateSolver.hpp"
 #include <QDebug>
 #include <QDir>
+#include <QCoreApplication>
+#include <QStandardPaths>
 #include <cmath>
 
 PlateSolver::PlateSolver(QObject *parent)
     : QObject(parent)
 {
-    // Default index folder paths
+    // Default index folder paths (platform-specific)
+#ifdef Q_OS_WIN
+    // Common Windows install locations for astrometry index files
+    m_indexFolderPaths << QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/astrometry"
+                       << "C:/Program Files/Astrometry/data"
+                       << QCoreApplication::applicationDirPath() + "/astrometry";
+#elif defined(Q_OS_MACOS)
     m_indexFolderPaths << "/opt/homebrew/Cellar/astrometry-net/0.97/data"
                        << "/usr/local/share/astrometry";
+#else
+    m_indexFolderPaths << "/usr/share/astrometry"
+                       << "/usr/local/share/astrometry";
+#endif
 }
 
 PlateSolver::~PlateSolver()

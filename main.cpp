@@ -14,10 +14,6 @@
  */
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
-    QString kernelDir = "/Users/jonathan/spice_kernels/";
-    QString outputDir = kernelDir; // Write output to same directory
-    QString horizonsFile = kernelDir + "horizons_reference.txt";
-    QString cometName = "1004054";
 
     // Create and show the main window
     TelescopeGUI *gui = new TelescopeGUI();

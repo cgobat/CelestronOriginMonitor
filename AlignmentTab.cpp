@@ -191,7 +191,13 @@ void AlignmentTab::setupUI()
     m_logView = new QTextEdit();
     m_logView->setReadOnly(true);
     m_logView->setMaximumHeight(150);
+#ifdef Q_OS_WIN
+    m_logView->setFont(QFont("Consolas", 9));
+#elif defined(Q_OS_MACOS)
     m_logView->setFont(QFont("Menlo", 10));
+#else
+    m_logView->setFont(QFont("Monospace", 9));
+#endif
     logLayout->addWidget(m_logView);
     mainLayout->addWidget(logGroup);
 }

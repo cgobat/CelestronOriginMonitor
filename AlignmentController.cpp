@@ -590,7 +590,7 @@ void AlignmentController::onPlateSolveCompleted(const PlateSolveResult &result)
             setState(Error);
             return;
         }
-        m_numStarsRequested = std::min(m_numStarsRequested, m_visibleStars.size());
+        m_numStarsRequested = std::min(m_numStarsRequested, static_cast<int>(m_visibleStars.size()));
 
         setState(SelectingStar);
         selectNextStar();
