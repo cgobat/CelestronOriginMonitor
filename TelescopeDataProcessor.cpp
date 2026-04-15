@@ -187,8 +187,11 @@ void TelescopeDataProcessor::updateTaskControllerStatus(const QJsonObject &obj) 
 
     // Check for ErrorCode
     if (obj.contains("ErrorMessage")) {
-        telescopeData.taskController.currentStep = obj["ErrorMessage"].toString();
-	qDebug() << "Error" << telescopeData.taskController.currentStep;
+        QString errMsg = obj["ErrorMessage"].toString();
+        if (!errMsg.isEmpty()) {
+            telescopeData.taskController.currentStep = errMsg;
+            qDebug() << "TaskController error:" << errMsg;
+        }
     }
     
     // Check for InitializationInfo

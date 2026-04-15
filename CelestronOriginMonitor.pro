@@ -20,6 +20,10 @@ QMAKE_INFO_PLIST = Info.plist
 # Include path
 INCLUDEPATH += .
 INCLUDEPATH += /opt/homebrew/include
+INCLUDEPATH += /usr/local/include/libstellarsolver
+
+# StellarSolver plate solving library
+LIBS += -L/usr/local/lib -lstellarsolver
 
 # Enable modern C++ features
 CONFIG += c++17
@@ -37,6 +41,14 @@ SOURCES += \
     OriginBackend.cpp \
     LogReplayDialog.cpp \
     CommandInterface.cpp \
+    ImageAnalyzer.cpp \
+    AutopilotController.cpp \
+    AutopilotTab.cpp \
+    JsonMonitorTab.cpp \
+    PlateSolver.cpp \
+    MountModel.cpp \
+    AlignmentController.cpp \
+    AlignmentTab.cpp \
 
 # Original header files
 HEADERS += \
@@ -48,6 +60,14 @@ HEADERS += \
     OriginBackend.hpp \
     LogReplayDialog.hpp \
     CommandInterface.hpp \
+    ImageAnalyzer.hpp \
+    AutopilotController.hpp \
+    AutopilotTab.hpp \
+    JsonMonitorTab.hpp \
+    PlateSolver.hpp \
+    MountModel.hpp \
+    AlignmentController.hpp \
+    AlignmentTab.hpp \
     
 # Default rules
 qnx: target.path = /tmp/$${TARGET}/bin
@@ -61,6 +81,7 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 macx {
     QMAKE_CXXFLAGS += -Werror=return-type
     QMAKE_LFLAGS += -Wl,-rpath,@executable_path/../Frameworks
+    QMAKE_LFLAGS += -Wl,-rpath,/usr/local/lib
     
     # For XCode build
     CONFIG += build_all relative_qt_rpath

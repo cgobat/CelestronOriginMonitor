@@ -2,6 +2,11 @@
 #include "CommandInterface.hpp"
 #include "OriginBackend.hpp"
 #include "MessierCatalog.hpp"
+#include "AutopilotController.hpp"
+#include "AutopilotTab.hpp"
+#include "AlignmentController.hpp"
+#include "AlignmentTab.hpp"
+#include "JsonMonitorTab.hpp"
 #include <cmath>
 
 TelescopeGUI::TelescopeGUI(QWidget *parent)
@@ -49,6 +54,19 @@ TelescopeGUI::TelescopeGUI(QWidget *parent)
 
     connect(dataProcessor, &TelescopeDataProcessor::newImageAvailable,
             this, &TelescopeGUI::updateImageDisplay);
+
+    //
+    // Autopilot controller
+    //
+    m_autopilotController = new AutopilotController(originBackend, this);
+
+    //
+    // Alignment controller (plate solving, mount model)
+    //
+    m_alignmentController = new AlignmentController(originBackend, this);
+
+    // Wire mount model into backend for automatic GoTo corrections
+    originBackend->setMountModel(m_alignmentController->mountModel());
 
     //
     // Now build GUI
@@ -505,8 +523,11 @@ void TelescopeGUI::setupUI() {
     tabWidget->addTab(createDewHeaterTab(), "Dew Heater");
     tabWidget->addTab(createSlewAndImageTab(), "Slew & Image");   
     tabWidget->addTab(createTaskControllerTab(), "Task Controller");   
-    tabWidget->addTab(createCommandTab(), "Commands");   
-    
+    tabWidget->addTab(createCommandTab(), "Commands");
+    tabWidget->addTab(new AutopilotTab(m_autopilotController, this), "Autopilot");
+    tabWidget->addTab(new AlignmentTab(m_alignmentController, this), "Alignment");
+    tabWidget->addTab(new JsonMonitorTab(originBackend, this), "JSON Monitor");
+
     mainLayout->addWidget(tabWidget);
 }
 

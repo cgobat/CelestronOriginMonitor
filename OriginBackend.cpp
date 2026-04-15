@@ -1,4 +1,6 @@
 #include "OriginBackend.hpp"
+#include "MountModel.hpp"
+#include "CoordinateUtils.hpp"
 #include <QDebug>
 #include <QDateTime>
 #include <QUrl>
@@ -168,27 +170,41 @@ bool OriginBackend::gotoPosition(double ra, double dec)
         return false;
     }
 
-    // Convert RA/Dec to radians for Origin telescope
-    double raRadians = hoursToRadians(ra);
-    double decRadians = degreesToRadians(dec);
+    // Apply mount model RA/Dec corrections if available
+    // The model predicts pointing errors; we pre-correct the target in RA/Dec space
+    if (m_mountModel && m_mountModel->isModelValid()) {
+        double raDeg = ra * 15.0;  // hours -> degrees
+        double decDeg = dec;
 
-    QJsonObject params;
-    params["Ra"] = raRadians;
-    params["Dec"] = decRadians;
+        // Compute approximate Alt/Az for the target to evaluate TPOINT terms
+        QDateTime now = QDateTime::currentDateTimeUtc();
+        double jd = CoordinateUtils::computeJulianDay(
+            now.date().year(), now.date().month(), now.date().day(),
+            now.time().hour(), now.time().minute(), now.time().second());
 
-    sendCommand("GotoRaDec", "Mount", params);
-    
-    m_status.isSlewing = true;
-    m_status.currentOperation = "Slewing";
-    
-    return true;
-}
+        const TelescopeData &data = m_dataProcessor->getData();
+        double lst = CoordinateUtils::localSiderealTime(data.mount.longitude, jd);
 
-bool OriginBackend::syncPosition(double ra, double dec)
-{
-    if (!isConnected()) {
-        qWarning() << "Cannot sync position - not connected";
-        return false;
+        auto [alt, az, ha] = CoordinateUtils::raDecToAltAz(
+            raDeg * M_PI / 180.0, decDeg * M_PI / 180.0,
+            data.mount.latitude * M_PI / 180.0,
+            data.mount.longitude * M_PI / 180.0, lst);
+
+        double corrRaDeg, corrDecDeg;
+        m_mountModel->predictCorrection(raDeg, decDeg,
+                                         alt * 180.0 / M_PI, az * 180.0 / M_PI,
+                                         corrRaDeg, corrDecDeg);
+
+        // Also apply leveling quaternion correction
+        m_mountModel->applyLevelingCorrection(corrRaDeg, corrDecDeg,
+                                               alt * 180.0 / M_PI, az * 180.0 / M_PI);
+
+        qDebug() << "Mount model correction: dRA="
+                 << (corrRaDeg - raDeg) * 3600.0 << "\" dDec="
+                 << (corrDecDeg - decDeg) * 3600.0 << "\"";
+
+        ra = corrRaDeg / 15.0;  // degrees -> hours
+        dec = corrDecDeg;
     }
 
     // Convert RA/Dec to radians for Origin telescope
@@ -199,8 +215,84 @@ bool OriginBackend::syncPosition(double ra, double dec)
     params["Ra"] = raRadians;
     params["Dec"] = decRadians;
 
-    sendCommand("SyncToRaDec", "Mount", params);
-    
+    sendCommand("GotoRaDec", "Mount", params);
+
+    m_status.isSlewing = true;
+    m_status.currentOperation = "Slewing";
+
+    return true;
+}
+
+void OriginBackend::setMountModel(MountModel *model)
+{
+    m_mountModel = model;
+}
+
+void OriginBackend::correctionSlew(double dAltArcsec, double dAzArcsec)
+{
+    if (!isConnected()) return;
+
+    // Convert arcsecond offsets to a timed relative slew.
+    // The Slew command takes AltRate and AzmRate (degrees/second).
+    // We use a low rate and compute the duration needed.
+    static constexpr double SLEW_RATE_DEG_PER_SEC = 0.5;  // conservative rate
+    static constexpr double MIN_CORRECTION_ARCSEC = 1.0;   // ignore tiny corrections
+
+    double dAltDeg = dAltArcsec / 3600.0;
+    double dAzDeg = dAzArcsec / 3600.0;
+
+    double totalOffsetArcsec = std::sqrt(dAltArcsec * dAltArcsec + dAzArcsec * dAzArcsec);
+    if (totalOffsetArcsec < MIN_CORRECTION_ARCSEC) {
+        qDebug() << "Correction too small (" << totalOffsetArcsec << "\"), skipping";
+        return;
+    }
+
+    // Compute how long to slew at the chosen rate
+    double maxOffsetDeg = std::max(std::abs(dAltDeg), std::abs(dAzDeg));
+    double durationSec = maxOffsetDeg / SLEW_RATE_DEG_PER_SEC;
+
+    // Scale rates so both axes finish at the same time
+    double altRate = dAltDeg / durationSec;
+    double azRate = dAzDeg / durationSec;
+
+    qDebug() << "Correction slew: dAlt=" << dAltArcsec << "\" dAz=" << dAzArcsec
+             << "\" rate=" << altRate << "/" << azRate << " dur=" << durationSec << "s";
+
+    // Start the slew
+    QJsonObject slewCommand;
+    slewCommand["AltRate"] = altRate;
+    slewCommand["AzmRate"] = azRate;
+    sendCommand("Slew", "Mount", slewCommand);
+
+    // Set up a timer to stop the slew after the calculated duration
+    if (!m_correctionTimer) {
+        m_correctionTimer = new QTimer(this);
+        m_correctionTimer->setSingleShot(true);
+        connect(m_correctionTimer, &QTimer::timeout, this, [this]() {
+            QJsonObject stopCmd;
+            stopCmd["AltRate"] = 0;
+            stopCmd["AzmRate"] = 0;
+            sendCommand("Slew", "Mount", stopCmd);
+            qDebug() << "Correction slew complete";
+        });
+    }
+    m_correctionTimer->start(static_cast<int>(durationSec * 1000));
+}
+
+bool OriginBackend::syncPosition(double ra, double dec)
+{
+    if (!isConnected()) {
+        qWarning() << "Cannot sync position - not connected";
+        return false;
+    }
+
+    // SyncToRaDec is not available on Origin; update internal state only.
+    // Pointing corrections are handled by the MountModel instead.
+    m_status.raPosition = ra;
+    m_status.decPosition = dec;
+    qDebug() << "syncPosition: internal update RA=" << ra << "Dec=" << dec
+             << "(SyncToRaDec not available)";
+
     return true;
 }
 
@@ -536,39 +628,22 @@ bool OriginBackend::moveDirection(int direction, int speed)
         return false;
     }
 
-    // Map direction codes to Origin telescope directions
-    // 0 = North (Dec+), 1 = South (Dec-), 2 = East (RA+), 3 = West (RA-)
-    
-    QString axisName;
-    QString directionName;
-    
+    // Use Slew with AltRate/AzmRate (MoveAxis is not available on Origin)
+    // Convert direction + speed to signed rate
+    double rate = speed / 10.0;  // scale 0-100 to 0-10 deg/s
+    double altRate = 0, azmRate = 0;
+
     switch(direction) {
-        case 0: // North
-            axisName = "Dec";
-            directionName = "Positive";
-            break;
-        case 1: // South
-            axisName = "Dec";
-            directionName = "Negative";
-            break;
-        case 2: // East
-            axisName = "Ra";
-            directionName = "Positive";
-            break;
-        case 3: // West
-            axisName = "Ra";
-            directionName = "Negative";
-            break;
-        default:
-            return false;
+        case 0: altRate =  rate; break;  // North = positive alt
+        case 1: altRate = -rate; break;  // South = negative alt
+        case 2: azmRate =  rate; break;  // East = positive az
+        case 3: azmRate = -rate; break;  // West = negative az
     }
 
-    QJsonObject params;
-    params["Axis"] = axisName;
-    params["Direction"] = directionName;
-    params["Speed"] = speed; // 0-100
-
-    sendCommand("MoveAxis", "Mount", params);
+    QJsonObject slewCmd;
+    slewCmd["AltRate"] = altRate;
+    slewCmd["AzmRate"] = azmRate;
+    sendCommand("Slew", "Mount", slewCmd);
     
     return true;
 }
@@ -779,7 +854,8 @@ void OriginBackend::onTextMessageReceived(const QString &message)
     }
     
     QJsonObject obj = doc.object();
-    
+    emit rawJsonTraffic("RECV", obj);
+
     // Still emit for other listeners
 //    emit messageReceived(obj);
     
@@ -908,9 +984,9 @@ void OriginBackend::sendCommand(const QString& command, const QString& destinati
     QString message = doc.toJson(QJsonDocument::Compact);  // Use Compact for cleaner logs
     
     if (isConnected()) {
-        // LOG THE OUTGOING MESSAGE - ADD THIS
         logWebSocketMessage("SEND", message);
-        
+        emit rawJsonTraffic("SEND", jsonCommand);
+
         m_webSocket->sendTextMessage(message);
         
         // Store the command for potential response tracking
@@ -932,14 +1008,12 @@ void OriginBackend::updateStatusFromProcessor()
     m_status.isSlewing = !data.mount.isGotoOver;
     m_status.isAligned = data.mount.isAligned;
     
-    // Convert coordinates from radians
-    m_status.raPosition = radiansToHours(data.mount.enc0); // Assuming enc0 is RA
-    m_status.decPosition = radiansToDegrees(data.mount.enc1); // Assuming enc1 is Dec
-    
-    // Calculate Alt/Az from current mount data if available
-    // This would require proper coordinate conversion
-    m_status.altPosition = 45.0; // Placeholder
-    m_status.azPosition = 180.0; // Placeholder
+    // Origin is alt-az: Alt/Azm are the encoder positions in radians
+    m_status.altPosition = radiansToDegrees(data.mount.altitude);
+    m_status.azPosition = radiansToDegrees(data.mount.azimuth);
+
+    // RA/Dec are not available from encoders on an alt-az mount.
+    // They come from plate solving or the NewImageReady Ra/Dec fields.
     
     // Update temperature from environment data
     m_status.temperature = data.environment.ambientTemperature;

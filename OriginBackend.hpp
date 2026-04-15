@@ -20,6 +20,8 @@
 #include <QWebSocket>
 #include "TelescopeDataProcessor.hpp"
 
+class MountModel;
+
 /**
  * @brief Backend adapter to connect Alpaca server to Celestron Origin telescope
  * 
@@ -73,9 +75,14 @@ public:
     // Mount operations
     bool gotoPosition(double ra, double dec);
     bool syncPosition(double ra, double dec);
+    void setMountModel(MountModel *model);
+
+    // Relative slew correction: nudge mount by dAlt/dAz arcseconds
+    // Uses timed Slew command at a low rate
+    void correctionSlew(double dAltArcsec, double dAzArcsec);
     bool abortMotion();
-    bool parkMount();           // Park using MoveAxis and altitude monitoring
-    bool unparkMount();         // Unpark using MoveAxis and altitude monitoring
+    bool parkMount();           // Park using Slew rate and altitude monitoring
+    bool unparkMount();         // Unpark using Slew rate and altitude monitoring
     bool initializeTelescope();
     bool moveDirection(int direction, int speed);
     void speed(int altRate);
@@ -140,6 +147,7 @@ signals:
     void parkCompleted();
     void unparkCompleted();
     void trackingError(const QString& error);
+    void rawJsonTraffic(const QString &direction, const QJsonObject &json);
 
 private slots:
     void onWebSocketConnected();
@@ -203,4 +211,6 @@ private:
     bool m_parkingInProgress;
     bool m_unparkingInProgress;
     double m_targetAltitude;  // Target altitude for park/unpark operations
+    MountModel *m_mountModel = nullptr;  // Optional mount model for pointing corrections
+    QTimer *m_correctionTimer = nullptr;  // Timer to stop correction slew
 };

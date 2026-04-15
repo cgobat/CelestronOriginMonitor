@@ -4,6 +4,7 @@
 
 #include <QStringList>
 #include <QMap>
+#include <QSet>
 
 struct MessierSkyPosition {
     double ra_deg;
@@ -77,9 +78,9 @@ inline double raHoursToDegrees(double ra_hours) {
 }
 
 // Initialize the catalog with converted coordinates
-QList<MessierObject> MessierCatalog::m_catalog;
+inline QList<MessierObject> MessierCatalog::m_catalog;
 
-void MessierCatalog::initializeCatalog() {
+inline void MessierCatalog::initializeCatalog() {
     if (!m_catalog.isEmpty()) return;
     
     // Set of imaged objects for quick lookup
@@ -642,7 +643,7 @@ void MessierCatalog::initializeCatalog() {
     };
 }
 
-MessierSkyPosition MessierCatalog::createSkyPosition(double ra_hours, double dec_degrees, 
+inline MessierSkyPosition MessierCatalog::createSkyPosition(double ra_hours, double dec_degrees,
                                             const QString& name, const QString& description) {
     MessierSkyPosition pos;
     pos.ra_deg = raHoursToDegrees(ra_hours);  // Convert RA hours to degrees
@@ -652,14 +653,14 @@ MessierSkyPosition MessierCatalog::createSkyPosition(double ra_hours, double dec
     return pos;
 }
 
-QList<MessierObject> MessierCatalog::getAllObjects() {
+inline QList<MessierObject> MessierCatalog::getAllObjects() {
     if (m_catalog.isEmpty()) {
         initializeCatalog();
     }
     return m_catalog;
 }
 
-MessierObject MessierCatalog::getObjectById(int id) {
+inline MessierObject MessierCatalog::getObjectById(int id) {
     auto objects = getAllObjects();
     for (const auto& obj : objects) {
         if (obj.id == id) {
@@ -670,7 +671,7 @@ MessierObject MessierCatalog::getObjectById(int id) {
     return MessierObject{};
 }
 
-QList<MessierObject> MessierCatalog::getImagedObjects() {
+inline QList<MessierObject> MessierCatalog::getImagedObjects() {
     auto objects = getAllObjects();
     QList<MessierObject> imaged;
     for (const auto& obj : objects) {
@@ -681,7 +682,7 @@ QList<MessierObject> MessierCatalog::getImagedObjects() {
     return imaged;
 }
 
-QStringList MessierCatalog::getObjectNames() {
+inline QStringList MessierCatalog::getObjectNames() {
     auto objects = getAllObjects();
     QStringList names;
     for (const auto& obj : objects) {
@@ -694,7 +695,7 @@ QStringList MessierCatalog::getObjectNames() {
     return names;
 }
 
-QString MessierCatalog::objectTypeToString(MessierObjectType type) {
+inline QString MessierCatalog::objectTypeToString(MessierObjectType type) {
     switch(type) {
         case MessierObjectType::GLOBULAR_CLUSTER: return "Globular Cluster";
         case MessierObjectType::OPEN_CLUSTER: return "Open Cluster";

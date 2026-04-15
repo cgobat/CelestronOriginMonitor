@@ -1,6 +1,8 @@
 #pragma once
 
 class OriginBackend;
+class AutopilotController;
+class AlignmentController;
 
 #include <QMainWindow>
 #include <QVBoxLayout>
@@ -346,6 +348,8 @@ private:
 
     bool debug = false;
     LogReplayDialog* m_logReplayDialog;
+    AutopilotController* m_autopilotController;
+    AlignmentController* m_alignmentController;
 
   
 };

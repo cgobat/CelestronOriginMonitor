@@ -86,7 +86,7 @@ struct DewHeaterStatus {
 };
 
 struct OrientationStatus {
-    int altitude = 0;
+    double altitude = 0.0;  // inclinometer reading in degrees
 };
 
 struct TaskControllerStatus {
