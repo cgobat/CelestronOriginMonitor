@@ -36,10 +36,15 @@ build/CelestronOriginMonitor
 ## Build a Debian package locally
 
 ```bash
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DORIGINMONITOR_PACKAGE_DEB=ON
+cmake --build build --parallel
 cpack --config build/CPackConfig.cmake -G DEB
+bash packaging/relax-stellarsolver-dep.sh ./*.deb
 ```
 
-The resulting `.deb` package is written to the repository root.
+The resulting `.deb` package is written to the repository root. The final step
+adjusts the generated Debian control metadata so the StellarSolver runtime
+dependency can be satisfied by either `libstellarsolver2` or `libstellarsolver`.
 
 ## Astrometry index files
 

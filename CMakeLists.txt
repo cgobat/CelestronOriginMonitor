@@ -20,60 +20,8 @@ endif()
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Network WebSockets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network WebSockets)
 
-# Find StellarSolver. Prefer pkg-config on Unix so distro packages provide
-# the correct include directories and transitive linker flags.
-find_package(PkgConfig QUIET)
-if(PkgConfig_FOUND)
-    pkg_check_modules(STELLARSOLVER_PC QUIET IMPORTED_TARGET stellarsolver)
-endif()
-
-if(STELLARSOLVER_PC_FOUND)
-    set(STELLARSOLVER_LINK_LIBS PkgConfig::STELLARSOLVER_PC)
-    message(STATUS "StellarSolver found via pkg-config")
-else()
-    # On Windows, users should set CMAKE_PREFIX_PATH or STELLARSOLVER_DIR.
-    # On macOS/Linux, pkg-config or standard paths should work.
-    find_path(STELLARSOLVER_INCLUDE_DIR stellarsolver.h
-        HINTS
-            ${STELLARSOLVER_DIR}/include
-            ${STELLARSOLVER_DIR}/include/libstellarsolver
-            /usr/include/libstellarsolver
-            /usr/local/include/libstellarsolver
-            /opt/homebrew/include
-            "C:/Program Files/StellarSolver/include"
-            "$ENV{PROGRAMFILES}/StellarSolver/include"
-            # MSYS2/MinGW64 paths
-            "C:/msys64/mingw64/include/libstellarsolver"
-            "C:/msys64/ucrt64/include/libstellarsolver"
-            "$ENV{MINGW_PREFIX}/include/libstellarsolver"
-    )
-
-    find_library(STELLARSOLVER_LIBRARY
-        NAMES stellarsolver
-        HINTS
-            ${STELLARSOLVER_DIR}/lib
-            /usr/local/lib
-            /opt/homebrew/lib
-            "C:/Program Files/StellarSolver/lib"
-            "$ENV{PROGRAMFILES}/StellarSolver/lib"
-            # MSYS2/MinGW64 paths
-            "C:/msys64/mingw64/lib"
-            "C:/msys64/ucrt64/lib"
-            "$ENV{MINGW_PREFIX}/lib"
-    )
-
-    if(NOT STELLARSOLVER_INCLUDE_DIR OR NOT STELLARSOLVER_LIBRARY)
-        message(FATAL_ERROR
-            "StellarSolver not found. Install libstellarsolver-dev or set -DSTELLARSOLVER_DIR=<path> or CMAKE_PREFIX_PATH.\n"
-            "  On Windows: install from https://github.com/rlancaste/stellarsolver\n"
-            "  Searched include: ${STELLARSOLVER_INCLUDE_DIR}\n"
-            "  Searched lib: ${STELLARSOLVER_LIBRARY}")
-    endif()
-
-    set(STELLARSOLVER_LINK_LIBS ${STELLARSOLVER_LIBRARY})
-    message(STATUS "StellarSolver include: ${STELLARSOLVER_INCLUDE_DIR}")
-    message(STATUS "StellarSolver library: ${STELLARSOLVER_LIBRARY}")
-endif()
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+find_package(StellarSolver REQUIRED)
 
 # Main GUI application sources
 set(SOURCES
@@ -117,10 +65,15 @@ add_executable(${PROJECT_NAME} WIN32 ${SOURCES} ${HEADERS})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${STELLARSOLVER_INCLUDE_DIRS}
 )
 
-if(NOT STELLARSOLVER_PC_FOUND)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${STELLARSOLVER_INCLUDE_DIR})
+if(STELLARSOLVER_LINK_DIRS)
+    target_link_directories(${PROJECT_NAME} PRIVATE ${STELLARSOLVER_LINK_DIRS})
+endif()
+
+if(STELLARSOLVER_LINK_OPTIONS)
+    target_link_options(${PROJECT_NAME} PRIVATE ${STELLARSOLVER_LINK_OPTIONS})
 endif()
 
 # StellarSolver on Windows is built as a static library; suppress dllimport/dllexport
@@ -182,16 +135,7 @@ if(WIN32)
     endif()
 endif()
 
-set(CPACK_PACKAGE_NAME "celestron-origin-monitor")
-set(CPACK_PACKAGE_VENDOR "CelestronOriginMonitor")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "GUI monitor and controller for Celestron Origin telescopes")
-set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-set(CPACK_PACKAGE_CONTACT "Celestron Origin Monitor Maintainers")
-set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
-set(CPACK_GENERATOR "DEB")
-set(CPACK_DEBIAN_PACKAGE_NAME "${CPACK_PACKAGE_NAME}")
-set(CPACK_DEBIAN_PACKAGE_SECTION "science")
-set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Celestron Origin Monitor Maintainers")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-include(CPack)
+option(ORIGINMONITOR_PACKAGE_DEB "Enable Debian package generation" OFF)
+if(ORIGINMONITOR_PACKAGE_DEB)
+    include(PackageDeb)
+endif()
