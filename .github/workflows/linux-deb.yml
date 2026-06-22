@@ -38,6 +38,11 @@ jobs:
       - name: Build Debian package
         run: cpack --config build/CPackConfig.cmake -G DEB
 
+      - name: Relax StellarSolver runtime dependency
+        run: |
+          bash packaging/relax-stellarsolver-dep.sh ./*.deb
+          dpkg-deb -f ./*.deb Depends
+
       - name: Upload Debian package
         uses: actions/upload-artifact@v7
         with:
