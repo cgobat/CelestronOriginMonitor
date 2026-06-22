@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 
 project(CelestronOriginMonitor VERSION 1.0.0 LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -13,50 +15,65 @@ if(MSVC)
     add_compile_definitions(_USE_MATH_DEFINES)
 endif()
 
-# Find Qt packages
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Network WebSockets)
+# Find Qt packages. Qt 6 is preferred, but Debian/Ubuntu's packaged
+# StellarSolver is currently built against Qt 5, so allow either Qt major.
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Widgets Network WebSockets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network WebSockets)
 
-# Find StellarSolver
-# On Windows, users should set CMAKE_PREFIX_PATH or STELLARSOLVER_DIR
-# On macOS/Linux, pkg-config or standard paths should work
-find_path(STELLARSOLVER_INCLUDE_DIR stellarsolver.h
-    HINTS
-        ${STELLARSOLVER_DIR}/include
-        ${STELLARSOLVER_DIR}/include/libstellarsolver
-        /usr/local/include/libstellarsolver
-        /opt/homebrew/include
-        "C:/Program Files/StellarSolver/include"
-        "$ENV{PROGRAMFILES}/StellarSolver/include"
-        # MSYS2/MinGW64 paths
-        "C:/msys64/mingw64/include/libstellarsolver"
-        "C:/msys64/ucrt64/include/libstellarsolver"
-        "$ENV{MINGW_PREFIX}/include/libstellarsolver"
-)
-
-find_library(STELLARSOLVER_LIBRARY
-    NAMES stellarsolver
-    HINTS
-        ${STELLARSOLVER_DIR}/lib
-        /usr/local/lib
-        /opt/homebrew/lib
-        "C:/Program Files/StellarSolver/lib"
-        "$ENV{PROGRAMFILES}/StellarSolver/lib"
-        # MSYS2/MinGW64 paths
-        "C:/msys64/mingw64/lib"
-        "C:/msys64/ucrt64/lib"
-        "$ENV{MINGW_PREFIX}/lib"
-)
-
-if(NOT STELLARSOLVER_INCLUDE_DIR OR NOT STELLARSOLVER_LIBRARY)
-    message(FATAL_ERROR
-        "StellarSolver not found. Set -DSTELLARSOLVER_DIR=<path> or CMAKE_PREFIX_PATH.\n"
-        "  On Windows: install from https://github.com/rlancaste/stellarsolver\n"
-        "  Searched include: ${STELLARSOLVER_INCLUDE_DIR}\n"
-        "  Searched lib: ${STELLARSOLVER_LIBRARY}")
+# Find StellarSolver. Prefer pkg-config on Unix so distro packages provide
+# the correct include directories and transitive linker flags.
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(STELLARSOLVER_PC QUIET IMPORTED_TARGET stellarsolver)
 endif()
 
-message(STATUS "StellarSolver include: ${STELLARSOLVER_INCLUDE_DIR}")
-message(STATUS "StellarSolver library: ${STELLARSOLVER_LIBRARY}")
+if(STELLARSOLVER_PC_FOUND)
+    set(STELLARSOLVER_LINK_LIBS PkgConfig::STELLARSOLVER_PC)
+    message(STATUS "StellarSolver found via pkg-config")
+else()
+    # On Windows, users should set CMAKE_PREFIX_PATH or STELLARSOLVER_DIR.
+    # On macOS/Linux, pkg-config or standard paths should work.
+    find_path(STELLARSOLVER_INCLUDE_DIR stellarsolver.h
+        HINTS
+            ${STELLARSOLVER_DIR}/include
+            ${STELLARSOLVER_DIR}/include/libstellarsolver
+            /usr/include/libstellarsolver
+            /usr/local/include/libstellarsolver
+            /opt/homebrew/include
+            "C:/Program Files/StellarSolver/include"
+            "$ENV{PROGRAMFILES}/StellarSolver/include"
+            # MSYS2/MinGW64 paths
+            "C:/msys64/mingw64/include/libstellarsolver"
+            "C:/msys64/ucrt64/include/libstellarsolver"
+            "$ENV{MINGW_PREFIX}/include/libstellarsolver"
+    )
+
+    find_library(STELLARSOLVER_LIBRARY
+        NAMES stellarsolver
+        HINTS
+            ${STELLARSOLVER_DIR}/lib
+            /usr/local/lib
+            /opt/homebrew/lib
+            "C:/Program Files/StellarSolver/lib"
+            "$ENV{PROGRAMFILES}/StellarSolver/lib"
+            # MSYS2/MinGW64 paths
+            "C:/msys64/mingw64/lib"
+            "C:/msys64/ucrt64/lib"
+            "$ENV{MINGW_PREFIX}/lib"
+    )
+
+    if(NOT STELLARSOLVER_INCLUDE_DIR OR NOT STELLARSOLVER_LIBRARY)
+        message(FATAL_ERROR
+            "StellarSolver not found. Install libstellarsolver-dev or set -DSTELLARSOLVER_DIR=<path> or CMAKE_PREFIX_PATH.\n"
+            "  On Windows: install from https://github.com/rlancaste/stellarsolver\n"
+            "  Searched include: ${STELLARSOLVER_INCLUDE_DIR}\n"
+            "  Searched lib: ${STELLARSOLVER_LIBRARY}")
+    endif()
+
+    set(STELLARSOLVER_LINK_LIBS ${STELLARSOLVER_LIBRARY})
+    message(STATUS "StellarSolver include: ${STELLARSOLVER_INCLUDE_DIR}")
+    message(STATUS "StellarSolver library: ${STELLARSOLVER_LIBRARY}")
+endif()
 
 # Main GUI application sources
 set(SOURCES
@@ -100,8 +117,11 @@ add_executable(${PROJECT_NAME} WIN32 ${SOURCES} ${HEADERS})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${STELLARSOLVER_INCLUDE_DIR}
 )
+
+if(NOT STELLARSOLVER_PC_FOUND)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${STELLARSOLVER_INCLUDE_DIR})
+endif()
 
 # StellarSolver on Windows is built as a static library; suppress dllimport/dllexport
 # by force-including a header that defines STELLARSOLVER_API to nothing before
@@ -125,23 +145,31 @@ if(WIN32)
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-    ${STELLARSOLVER_LIBRARY}
+    ${STELLARSOLVER_LINK_LIBS}
     ${STELLARSOLVER_TRANSITIVE_LIBS}
-    Qt6::Core
-    Qt6::Widgets
-    Qt6::Network
-    Qt6::WebSockets
+    Qt${QT_VERSION_MAJOR}::Core
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::WebSockets
+)
+
+install(TARGETS ${PROJECT_NAME}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    BUNDLE DESTINATION .
 )
 
 # On Windows, copy Qt DLLs to output directory for easy running
 if(WIN32)
-    # Install target
-    install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
+    if(QT_VERSION_MAJOR EQUAL 6)
+        set(QT_BIN_HINT "${Qt6_DIR}/../../../bin")
+    else()
+        set(QT_BIN_HINT "${Qt5_DIR}/../../../bin")
+    endif()
 
     # Use windeployqt to gather Qt DLLs
     find_program(WINDEPLOYQT windeployqt
         HINTS
-            ${Qt6_DIR}/../../../bin
+            ${QT_BIN_HINT}
             "$ENV{MINGW_PREFIX}/bin"
             "C:/msys64/mingw64/bin"
             "C:/msys64/ucrt64/bin"
@@ -153,3 +181,17 @@ if(WIN32)
         )
     endif()
 endif()
+
+set(CPACK_PACKAGE_NAME "celestron-origin-monitor")
+set(CPACK_PACKAGE_VENDOR "CelestronOriginMonitor")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "GUI monitor and controller for Celestron Origin telescopes")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_CONTACT "Celestron Origin Monitor Maintainers")
+set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+set(CPACK_GENERATOR "DEB")
+set(CPACK_DEBIAN_PACKAGE_NAME "${CPACK_PACKAGE_NAME}")
+set(CPACK_DEBIAN_PACKAGE_SECTION "science")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Celestron Origin Monitor Maintainers")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+include(CPack)
