@@ -1,4 +1,5 @@
 #include "MountModel.hpp"
+#include "CoordinateUtils.hpp"
 #include <QDebug>
 #include <cmath>
 #include <algorithm>

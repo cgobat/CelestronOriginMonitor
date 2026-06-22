@@ -1,4 +1,5 @@
 #include "LogReplayDialog.hpp"
+#include "CoordinateUtils.hpp"
 #include <QMessageBox>
 #include <QSplitter>
 #include <QRegularExpression>

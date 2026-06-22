@@ -1,4 +1,5 @@
 #include "TelescopeGUI.hpp"
+#include "CoordinateUtils.hpp"
 #include "CommandInterface.hpp"
 #include "OriginBackend.hpp"
 #include "MessierCatalog.hpp"

@@ -58,7 +58,11 @@ OriginBackend::OriginBackend(QObject *parent)
         logWebSocketMessage("PONG", QString("RTT: %1ms").arg(elapsedTime));
     });
     
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     connect(m_webSocket, &QWebSocket::errorOccurred,
+#else
+    connect(m_webSocket, QOverload<QAbstractSocket::SocketError>::of(&QWebSocket::error),
+#endif
             this, [this](QAbstractSocket::SocketError error) {
         qWarning() << "WebSocket error:" << error << m_webSocket->errorString();
         logWebSocketMessage("ERROR", QString("Code: %1, Message: %2")
