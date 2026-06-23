@@ -1,30 +1,32 @@
 # Building CelestronOriginMonitor on Linux
 
+Linux builds use the existing qmake project file, matching the macOS-oriented
+build path and leaving the Windows CMake project alone.
+
 ## Prerequisites on Debian/Ubuntu
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
     build-essential \
-    cmake \
     dpkg-dev \
     fakeroot \
     libstellarsolver-dev \
     libqt5websockets5-dev \
-    ninja-build \
     pkg-config \
-    qtbase5-dev
+    qt5-qmake \
+    qtbase5-dev \
+    qtbase5-dev-tools
 ```
 
-The CMake project can build with Qt 5 or Qt 6. On Ubuntu 24.04, the packaged
-StellarSolver development library is built against Qt 5, so the default Linux
-package workflow installs Qt 5 development packages.
+Ubuntu's packaged StellarSolver development library is currently built against
+Qt 5, so the Linux package workflow uses Qt 5 qmake packages.
 
 ## Build locally
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
+qmake CelestronOriginMonitor.pro CONFIG+=release CONFIG-=debug
+make -j"$(nproc)"
 ```
 
 The executable is created at:
@@ -36,15 +38,14 @@ build/CelestronOriginMonitor
 ## Build a Debian package locally
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DORIGINMONITOR_PACKAGE_DEB=ON
-cmake --build build --parallel
-cpack --config build/CPackConfig.cmake -G DEB
-bash packaging/relax-stellarsolver-dep.sh ./*.deb
+bash packaging/build-deb-qmake.sh
 ```
 
-The resulting `.deb` package is written to the repository root. The final step
-adjusts the generated Debian control metadata so the StellarSolver runtime
-dependency can be satisfied by either `libstellarsolver2` or `libstellarsolver`.
+The resulting `.deb` package is written to the repository root. The package
+script builds with qmake, stages the executable under `/usr/bin`, computes
+runtime shared-library dependencies with `dpkg-shlibdeps`, then adjusts the
+StellarSolver dependency so either `libstellarsolver2` or `libstellarsolver` can
+satisfy it.
 
 ## Astrometry index files
 

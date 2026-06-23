@@ -105,8 +105,15 @@ win32 {
 }
 
 unix:!macx {
+    INCLUDEPATH += /usr/include/libstellarsolver
     INCLUDEPATH += /usr/local/include/libstellarsolver
-    LIBS += -L/usr/local/lib -lstellarsolver
+
+    CONFIG += link_pkgconfig
+    packagesExist(stellarsolver) {
+        PKGCONFIG += stellarsolver
+    } else {
+        LIBS += -L/usr/local/lib -lstellarsolver
+    }
 }
 
 # Default install rules
